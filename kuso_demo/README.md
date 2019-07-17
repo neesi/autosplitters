@@ -10,11 +10,11 @@ LiveSplit cannot load autosplitters without the _**Temp**_ folder, so you have t
 
 2. Make a folder called "!!!!!!!!!!!!!!!!!!!!!!!!" _**inside**_ the Temp folder. Yes, just a bunch of exclamation points.\*
 
-3. Right-click the folder -> Properties and follow the steps shown in this image (assuming you're using an admin account).
+3. Right-click the !!!!!!!!!!!!!!!!!!!!!!!! folder -> Properties and follow the steps shown in this image (assuming you're using an admin account).
 
 ![folder permissions](https://github.com/neesi/autosplitters/raw/master/kuso_demo/permissions.png)
 
-4. Try to delete the !!!!!!!!!!!!!!!!!!!!!!!! folder. You shouldn't be a able to.
+4. Try to delete the !!!!!!!!!!!!!!!!!!!!!!!! folder. You shouldn't be able to.
 
 5. Download the splitter [here](https://raw.githubusercontent.com/neesi/autosplitters/master/kuso_demo/kuso_demo_livesplit.asl). <br><br>
 
