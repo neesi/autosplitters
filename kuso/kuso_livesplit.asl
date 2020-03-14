@@ -2,8 +2,8 @@ state("KUSO", "Could not load game.") { }
 
 state("KUSO", "kuso") {
 
-  int    LevelID    : 0x6C4DB8;
-  double Framecount : 0x4B4804, 0x2C, 0x010, 0x018, 0x90;
+  int    LevelID    : 0x6C2DB8;
+  double Framecount : 0x4B2780, 0x2C, 0x10, 0x90, 0x80;
 }
 
 startup {
@@ -35,7 +35,7 @@ startup {
   settings.Add("     ",                                                                false);
   settings.Add("   I'll check up on kuso updates every once in a while (or not).",     false);
   settings.Add("      ",                                                               false);
-  settings.Add("   v0.0.4-p0  09-Jul-2019    https://neesi.github.io/autosplitters/",  false);
+  settings.Add("   v0.0.5-p0  14-Mar-2020    https://neesi.github.io/autosplitters/",  false);
 }
 
 init {
@@ -51,7 +51,7 @@ init {
   print("LegalCopyright   = \"" + vars.GameCopr.ToString() + "\"");
 
   if      (vars.GameRetry > 50)               { version = vars.GameStop; vars.GameRetry = 0; }
-  else if (vars.GameSize != 7729152)          { throw new Exception(vars.GameFailed); }
+  else if (vars.GameSize != 7659520)          { throw new Exception(vars.GameFailed); }
   else if (vars.GameCopr == "Fred Wood 2017") { version = "kuso"; }
   else                                        { version = vars.GameStop; vars.GameRetry = 0; }
 }
@@ -60,8 +60,8 @@ update { if (version == vars.GameStop) { return false; } }
 
 exit   { vars.GameRetry = 0; } isLoading { return true; } gameTime { return TimeSpan.FromSeconds(current.Framecount / 60); }
 
-reset  { if (current.LevelID < 54 && current.Framecount < old.Framecount || current.LevelID < 3 || current.LevelID > 53 && current.LevelID < 60) { return true; } }
+reset  { if (current.LevelID <= 54 && current.Framecount < old.Framecount || current.LevelID < 3 || current.LevelID > 54 && current.LevelID < 62) { return true; } }
 
-split  { if (current.LevelID == old.LevelID + 1 || current.LevelID != old.LevelID && (current.LevelID == 60 || current.LevelID == 61 && settings["IL_Splits_kuso"] || current.LevelID == 62)) { return true; } }
+split  { if (current.LevelID == old.LevelID + 1 || current.LevelID != old.LevelID && (current.LevelID == 62 || current.LevelID == 63 && settings["IL_Splits_kuso"] || current.LevelID == 65)) { return true; } }
 
-start  { if (current.LevelID > 2 && current.LevelID < 54) { return true; } }
+start  { if (current.LevelID > 2 && current.LevelID <= 54) { return true; } }
