@@ -2,14 +2,14 @@ state("Love", "Could not load game.") { }
 
 state("Love", "LOVE") {
 
-  int    LevelID     : 0x6AC9F0;
-  int    LevelActive : 0x49A5C8, 0x00, 0xCC, 0x0C, 0xCC;
-  double Framecount  : 0x49C3E0, 0x60, 0x10, 0x64, 0x00;
+  int    LevelID     : 0x4E4D50;
+  int    LevelActive : 0x4D9A64, 0xC, 0x50C, 0x40;
+  double Framecount  : 0x4CA500, 0x2C, 0x10, 0xFC, 0x210;
 }
 
 startup {
 
-  refreshRate    = 60;
+  refreshRate    = 120;
   vars.GameRetry = 0;
   vars.GameStop  = "Could not load game.";
 
@@ -20,6 +20,7 @@ startup {
   settings.Add("   - Autosplits after each level, so make a total of:",                false);
   settings.Add("       16 Split Segments for full level set.",                         false);
   settings.Add("         7 Split Segments for remix mode.",                            false);
+  settings.Add("         3 Split Segments for kuso mode.",                             false);
   settings.Add("   - Autoresets, except after the final split (completed run).",       false);
   settings.Add("  ",                                                                   false);
   settings.Add("   Right-click Splits -> Compare Against: Game Time (important).",     false);
@@ -35,7 +36,7 @@ startup {
   settings.Add("     ",                                                                false);
   settings.Add("   I'll check up on LOVE updates every once in a while (or not).",     false);
   settings.Add("      ",                                                               false);
-  settings.Add("   v0.0.4-p0  14-Jul-2019    https://neesi.github.io/autosplitters/",  false);
+  settings.Add("   v0.0.5-p0  02-Apr-2020    https://neesi.github.io/autosplitters/",  false);
 }
 
 init {
@@ -51,17 +52,17 @@ init {
   print("LegalCopyright   = \"" + vars.GameCopr.ToString() + "\"");
 
   if      (vars.GameRetry > 50)                    { version = vars.GameStop; vars.GameRetry = 0; }
-  else if (vars.GameSize != 7892992)               { throw new Exception(vars.GameFailed); }
-  else if (vars.GameCopr == "2014-2018 Fred Wood") { version = "LOVE"; }
+  else if (vars.GameSize != 8089600)               { throw new Exception(vars.GameFailed); }
+  else if (vars.GameCopr == "2014-2020 Fred Wood") { version = "LOVE"; }
   else                                             { version = vars.GameStop; vars.GameRetry = 0; }
 }
 
 update { if (version == vars.GameStop) { return false; } }
 
-exit   { vars.GameRetry = 0; } isLoading { return true; } gameTime { return TimeSpan.FromSeconds(current.Framecount / 30); }
+exit   { vars.GameRetry = 0; } isLoading { return true; } gameTime { return TimeSpan.FromSeconds(current.Framecount / 60); }
 
-reset  { if (current.Framecount < old.Framecount || current.LevelID < 4 || current.LevelID == 24) { return true; } }
+reset  { if (current.Framecount < old.Framecount || current.LevelID < 6 || current.LevelID == 25) { return true; } }
 
-split  { if (current.LevelID == old.LevelID + 1 || current.LevelID != old.LevelID && (current.LevelID == 22 && settings["IL_Splits_LOVE"])) { return true; } }
+split  { if (current.LevelID == old.LevelID + 1 || current.LevelID != old.LevelID && (current.LevelID == 23 && settings["IL_Splits_LOVE"])) { return true; } }
 
-start  { if (current.LevelActive == 1 && current.LevelID != 25) { return true; } }
+start  { if (current.LevelActive == 1) { return true; } }

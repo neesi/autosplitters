@@ -13,7 +13,7 @@ startup {
   vars.GameStop  = "Could not load game.";
 
   settings.Add("",                                                                     false);
-  settings.Add("                            LiveSplit autosplitter for kuso",          false);
+  settings.Add("                      LiveSplit autosplitter for LOVE 2: kuso",        false);
   settings.Add(" ",                                                                    false);
   settings.Add("   - Autostarts the timer.",                                           false);
   settings.Add("   - Autosplits after each level, so make a total of:",                false);
@@ -35,7 +35,7 @@ startup {
   settings.Add("     ",                                                                false);
   settings.Add("   I'll check up on kuso updates every once in a while (or not).",     false);
   settings.Add("      ",                                                               false);
-  settings.Add("   v0.0.5-p1  14-Mar-2020    https://neesi.github.io/autosplitters/",  false);
+  settings.Add("   v0.0.5-p2  02-Apr-2020    https://neesi.github.io/autosplitters/",  false);
 }
 
 init {
