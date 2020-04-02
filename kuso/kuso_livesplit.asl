@@ -1,6 +1,6 @@
-state("KUSO", "Could not load game.") { }
+state("kuso", "Could not load game.") { }
 
-state("KUSO", "kuso") {
+state("kuso", "kuso") {
 
   int    LevelID    : 0x6C2DB8;
   double Framecount : 0x4B2780, 0x2C, 0x10, 0x90, 0x80;
@@ -35,7 +35,7 @@ startup {
   settings.Add("     ",                                                                false);
   settings.Add("   I'll check up on kuso updates every once in a while (or not).",     false);
   settings.Add("      ",                                                               false);
-  settings.Add("   v0.0.5-p2  02-Apr-2020    https://neesi.github.io/autosplitters/",  false);
+  settings.Add("   v0.0.5-p3  02-Apr-2020    https://neesi.github.io/autosplitters/",  false);
 }
 
 init {
