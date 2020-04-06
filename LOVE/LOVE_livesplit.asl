@@ -3,8 +3,8 @@ state("Love", "Could not load game.") { }
 state("Love", "LOVE") {
 
   int    LevelID     : 0x6C2DB8;
-  int    LevelActive : 0x4B277C, 0x618, 0x338, 0x340;
-  double Framecount  : 0x4A654C, 0x610, 0x414, 0x340;
+  int    LevelActive : 0x4B0958, 0x0, 0x498, 0xC, 0x40;
+  double Framecount  : 0x497DF4, 0x18, 0x28, 0x300;
 }
 
 startup {
@@ -36,7 +36,7 @@ startup {
   settings.Add("     ",                                                                false);
   settings.Add("   I'll check up on LOVE updates every once in a while (or not).",     false);
   settings.Add("      ",                                                               false);
-  settings.Add("   v0.0.5-p1  02-Apr-2020    https://neesi.github.io/autosplitters/",  false);
+  settings.Add("   v0.0.5-p2  06-Apr-2020    https://neesi.github.io/autosplitters/",  false);
 }
 
 init {
