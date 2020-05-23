@@ -35,7 +35,7 @@ startup {
   settings.Add("     ",                                                                false);
   settings.Add("   I'll check up on kuso updates every once in a while (or not).",     false);
   settings.Add("      ",                                                               false);
-  settings.Add("   v0.0.5-p4  03-Apr-2020    https://neesi.github.io/autosplitters/",  false);
+  settings.Add("   v0.0.5-p5  23-May-2020    https://neesi.github.io/autosplitters/",  false);
 }
 
 init {
@@ -62,6 +62,6 @@ exit   { vars.GameRetry = 0; } isLoading { return true; } gameTime { return Time
 
 reset  { if (current.LevelID <= 54 && current.Framecount < old.Framecount || current.LevelID < 3 || current.LevelID > 54 && current.LevelID < 62) { return true; } }
 
-split  { if (current.LevelID == old.LevelID + 1 || current.LevelID != old.LevelID && (current.LevelID == 62 || current.LevelID == 63 && settings["IL_Splits_kuso"] || current.LevelID == 65)) { return true; } }
+split  { if (current.LevelID == old.LevelID + 1 || current.LevelID != old.LevelID && (current.LevelID == 62 || current.LevelID == 63 && settings["IL_Splits_kuso"] || current.LevelID == 65 || current.LevelID == 66)) { return true; } }
 
 start  { if (current.LevelID >= 3 && current.LevelID <= 54) { return true; } }
