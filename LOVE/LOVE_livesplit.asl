@@ -2,9 +2,9 @@ state("Love", "Could not load game.") { }
 
 state("Love", "LOVE") {
 
-  int    LevelID     : 0x6C2DB8;
-  int    LevelActive : 0x4B0958, 0x0, 0x498, 0xC, 0x40;
-  double Framecount  : 0x497DF4, 0x18, 0x28, 0x300;
+  int    LevelID     : 0x6A46A0;
+  int    LevelActive : 0x4942AC, 0x600, 0x260, 0x740;
+  double Framecount  : 0x48807C, 0x610, 0x354, 0x120;
 }
 
 startup {
@@ -36,7 +36,7 @@ startup {
   settings.Add("     ",                                                                false);
   settings.Add("   I'll check up on LOVE updates every once in a while (or not).",     false);
   settings.Add("      ",                                                               false);
-  settings.Add("   v0.0.5-p2  06-Apr-2020    https://neesi.github.io/autosplitters/",  false);
+  settings.Add("   v0.0.6-p0  02-Nov-2020    https://neesi.github.io/autosplitters/",  false);
 }
 
 init {
@@ -52,7 +52,7 @@ init {
   print("LegalCopyright   = \"" + vars.GameCopr.ToString() + "\"");
 
   if      (vars.GameRetry > 50)                    { version = vars.GameStop; vars.GameRetry = 0; }
-  else if (vars.GameSize != 7659520)               { throw new Exception(vars.GameFailed); }
+  else if (vars.GameSize != 7405568)               { throw new Exception(vars.GameFailed); }
   else if (vars.GameCopr == "2014-2020 Fred Wood") { version = "LOVE"; }
   else                                             { version = vars.GameStop; vars.GameRetry = 0; }
 }
