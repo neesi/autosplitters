@@ -1,68 +1,101 @@
-state("Love", "Could not load game.") { }
+state("Love") {}
 
-state("Love", "LOVE") {
+startup
+{
+	vars.Dbg = (Action<dynamic>) ((output) => print("[LOVE ASL] " + output));
 
-  int    LevelID     : 0x6C2DB8;
-  int    LevelActive : 0x4B277C, 0x600, 0x260, 0x74C;
-  double Framecount  : 0x4A654C, 0x610, 0x354, 0x120;
+	settings.Add("IL_Splits_LOVE", true, "Enable automatic splits for IL mode.");
 }
 
-startup {
+init
+{
+	vars.CancelSource = new CancellationTokenSource();
+	vars.ScanThread = new Thread(() =>
+	{
+		vars.Dbg("Starting scan thread.");
 
-  refreshRate    = 120;
-  vars.GameRetry = 0;
-  vars.GameStop  = "Could not load game.";
+		var roomManagerTrg = new SigScanTarget(1, "A1 ???????? 50 A3");
+		var gameManagerTrg = new SigScanTarget(1, "B9 ???????? 56 B8 ???????? 89 4C 24");
 
-  settings.Add("",                                                                     false);
-  settings.Add("                            LiveSplit autosplitter for LOVE",          false);
-  settings.Add(" ",                                                                    false);
-  settings.Add("   - Autostarts the timer.",                                           false);
-  settings.Add("   - Autosplits after each level, so make a total of:",                false);
-  settings.Add("       16 Split Segments for full level set.",                         false);
-  settings.Add("         7 Split Segments for remix mode.",                            false);
-  settings.Add("         3 Split Segments for kuso mode.",                             false);
-  settings.Add("   - Autoresets, except after the final split (completed run).",       false);
-  settings.Add("  ",                                                                   false);
-  settings.Add("   Right-click Splits -> Compare Against: Game Time (important).",     false);
-  settings.Add("   \"Game Time\" stays in sync with the game's framecounter.",         false);
-  settings.Add("   ",                                                                  false);
-  settings.Add("-------------------------------------------------------------------------------------------",  false);
-  settings.Add("IL_Splits_LOVE", true, "  <----  Enable automatic splits for IL mode.");
-  settings.Add("------------------------------------------------------------------------------------------- ", false);
-  settings.Add("    ",                                                                 false);
-  settings.Add("   If you see \"Game Version: Could not load game.\" near top-right,", false);
-  settings.Add("   there may have been an update for LOVE and this script needs",      false);
-  settings.Add("   to be updated as well to work with the game's new version.",        false);
-  settings.Add("     ",                                                                false);
-  settings.Add("   I'll check up on LOVE updates every once in a while (or not).",     false);
-  settings.Add("      ",                                                               false);
-  settings.Add("   v0.0.6-p1  28-Nov-2020    https://neesi.github.io/autosplitters/",  false);
+		foreach (var trg in new[] { roomManagerTrg, gameManagerTrg })
+			trg.OnFound = (p, s, ptr) => p.ReadPointer(ptr);
+
+		IntPtr roomManager = IntPtr.Zero, gameManager = IntPtr.Zero;
+
+		var token = vars.CancelSource.Token;
+		while (!token.IsCancellationRequested)
+		{
+			var scanner = new SignatureScanner(game, game.MainModule.BaseAddress, game.MainModule.ModuleMemorySize);
+
+			if (roomManager == IntPtr.Zero && (roomManager = scanner.Scan(roomManagerTrg)) != IntPtr.Zero)
+				vars.Dbg("Found roomManager at 0x" + roomManager.ToString("X"));
+
+			if (gameManager == IntPtr.Zero && (gameManager = scanner.Scan(gameManagerTrg)) != IntPtr.Zero)
+				vars.Dbg("Found gameManager at 0x" + gameManager.ToString("X"));
+
+			if (new[] { roomManager, gameManager }.All(ptr => ptr != IntPtr.Zero))
+			{
+				vars.Dbg("Found all pointers successfully.");
+				break;
+			}
+
+			vars.Dbg("Couldn't find all pointers. Retrying.");
+			Thread.Sleep(2000);
+		}
+
+		vars.Room = new MemoryWatcher<int>(roomManager);
+		vars.FrameCount = new MemoryWatcher<double>(new DeepPointer(gameManager, 0x610, 0x354, 0x120));
+	});
+
+	vars.ScanThread.Start();
 }
 
-init {
+update
+{
+	if (vars.ScanThread.IsAlive) return false;
 
-  vars.GameRetry++;
-  vars.GameFailed  = "Game failed to load. Retrying (" + vars.GameRetry + ")";
-  vars.GameSize    = modules.First().ModuleMemorySize;
-  vars.GameVersion = modules.First().FileVersionInfo.FileVersion;
-  vars.GameCopr    = modules.First().FileVersionInfo.LegalCopyright;
-
-  print("ModuleMemorySize = \"" + vars.GameSize.ToString() + "\"");
-  print("FileVersion      = \"" + vars.GameVersion.ToString() + "\"");
-  print("LegalCopyright   = \"" + vars.GameCopr.ToString() + "\"");
-
-  if      (vars.GameRetry > 50)                    { version = vars.GameStop; vars.GameRetry = 0; }
-  else if (vars.GameSize != 7659520)               { throw new Exception(vars.GameFailed); }
-  else if (vars.GameCopr == "2014-2020 Fred Wood") { version = "LOVE"; }
-  else                                             { version = vars.GameStop; vars.GameRetry = 0; }
+	vars.Room.Update(game);
+	vars.FrameCount.Update(game);
 }
 
-update { if (version == vars.GameStop) { return false; } }
+start
+{
+	if (!vars.Room.Changed) return;
 
-exit   { vars.GameRetry = 0; } isLoading { return true; } gameTime { return TimeSpan.FromSeconds(current.Framecount / 60); }
+	return (vars.Room.Old == 4 || vars.Room.Old == 25) && vars.Room.Current != 3;
+}
 
-reset  { if (current.Framecount < old.Framecount || current.LevelID < 6 || current.LevelID == 25) { return true; } }
+split
+{
+	if (!vars.Room.Changed) return;
 
-split  { if (current.LevelID == old.LevelID + 1 || current.LevelID != old.LevelID && (current.LevelID == 23 && settings["IL_Splits_LOVE"] || current.LevelID == 24 && old.LevelID != 22)) { return true; } }
+	return vars.Room.Current == vars.Room.Old + 1 ||
+	       vars.Room.Current == 23 ||
+	       vars.Room.Old != 22 && vars.Room.Current == 24;
+}
 
-start  { if (current.LevelActive == 1) { return true; } }
+reset
+{
+	return vars.Room.Changed && (vars.Room.Current == 6 || vars.Room.Current == 25) ||
+	       vars.FrameCount.Old > vars.FrameCount.Current;
+}
+
+gameTime
+{
+	return TimeSpan.FromSeconds(vars.FrameCount.Current / 60f);
+}
+
+isLoading
+{
+	return true;
+}
+
+exit
+{
+	vars.CancelSource.Cancel();
+}
+
+shutdown
+{
+	vars.CancelSource.Cancel();
+}
