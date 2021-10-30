@@ -55,7 +55,7 @@ init
 
 					if (FrameSearchValue == 99999999)
 					{
-						vars.FrameFoundAddr = vars.FrameSearchBase + offset - 32;
+						vars.FrameFoundAddr = FrameSearchOffset - 32;
 
 						vars.Room = new MemoryWatcher<int>(RoomPtr);
 						vars.FrameCount = new MemoryWatcher<double>(new DeepPointer(vars.FrameFoundAddr - (int) vars.GameBaseAddr));
