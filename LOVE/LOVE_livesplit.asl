@@ -40,23 +40,22 @@ init
 				vars.Dbg("Found frame counter pointer at 0x" + FramePtr.ToString("X"));
 
 			if (FramePtr != IntPtr.Zero)
-				vars.FrameValue = game.ReadValue<int>(FramePtr);
+				vars.FrameSearchBase = game.ReadValue<int>(FramePtr);
 
-			if (new[] { RoomPtr, FramePtr }.All(ptr => ptr != IntPtr.Zero) && vars.RoomValue > 0 && vars.FrameValue > (int) vars.GameBaseAddr)
+			if (new[] { RoomPtr, FramePtr }.All(ptr => ptr != IntPtr.Zero) && vars.RoomValue > 0 && vars.FrameSearchBase > (int) vars.GameBaseAddr)
 			{
 				vars.Dbg("Scan completed successfully. Enter speedrun or unlimited mode to grab frame counter address.");
 
-				var FrameSearchBase = game.ReadValue<int>(FramePtr);
 				int offset = 0;
 
 				while (!token.IsCancellationRequested)
 				{
-					var FrameSearchOffset = FrameSearchBase + offset;
+					var FrameSearchOffset = vars.FrameSearchBase + offset;
 					var FrameSearchValue = game.ReadValue<double>((IntPtr) FrameSearchOffset);
 
 					if (FrameSearchValue == 99999999)
 					{
-						vars.FrameFoundAddr = FrameSearchBase + offset - 32;
+						vars.FrameFoundAddr = vars.FrameSearchBase + offset - 32;
 
 						vars.Room = new MemoryWatcher<int>(RoomPtr);
 						vars.FrameCount = new MemoryWatcher<double>(new DeepPointer(vars.FrameFoundAddr - (int) vars.GameBaseAddr));
