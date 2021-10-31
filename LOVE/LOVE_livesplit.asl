@@ -12,7 +12,7 @@ init
 	vars.ScanThread = new Thread(() =>
 	{
 		vars.ScanThreadReady = true;
-		vars.GameBaseAddr = game.MainModule.BaseAddress;
+		vars.GameBaseAddr = (int) game.MainModule.BaseAddress;
 
 		vars.Dbg("Starting scan thread.");
 		vars.Dbg("MainModule.BaseAddress = 0x" + vars.GameBaseAddr.ToString("X"));
@@ -42,7 +42,7 @@ init
 			if (FramePtr != IntPtr.Zero)
 				vars.FrameSearchBase = game.ReadValue<int>(FramePtr);
 
-			if (new[] { RoomPtr, FramePtr }.All(ptr => ptr != IntPtr.Zero) && vars.RoomValue > 0 && vars.FrameSearchBase > (int) vars.GameBaseAddr)
+			if (new[] { RoomPtr, FramePtr }.All(ptr => ptr != IntPtr.Zero) && vars.RoomValue > 0 && vars.FrameSearchBase > vars.GameBaseAddr)
 			{
 				vars.Dbg("Scan completed successfully. Enter speedrun or unlimited mode to grab frame counter address.");
 
@@ -58,7 +58,7 @@ init
 						var FrameFoundAddr = FrameSearchOffset - 32;
 
 						vars.Room = new MemoryWatcher<int>(RoomPtr);
-						vars.FrameCount = new MemoryWatcher<double>(new DeepPointer(FrameFoundAddr - (int) vars.GameBaseAddr));
+						vars.FrameCount = new MemoryWatcher<double>(new DeepPointer(FrameFoundAddr - vars.GameBaseAddr));
 
 						vars.Dbg("Found frame counter address at 0x" + FrameFoundAddr.ToString("X"));
 						break;
@@ -123,5 +123,3 @@ shutdown
 {
 	if (vars.ScanThreadReady) vars.CancelSource.Cancel();
 }
-
-// v0.1.0a 30-Oct-2021
