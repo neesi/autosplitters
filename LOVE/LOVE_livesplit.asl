@@ -56,16 +56,19 @@ init
 					if (FrameSearchValue == 99999999)
 					{
 						var FrameFoundAddr = FrameSearchOffset - 32;
+						var FrameFoundAddrValue = game.ReadValue<double>((IntPtr) FrameFoundAddr);
 
-						vars.Room = new MemoryWatcher<int>(RoomPtr);
-						vars.FrameCount = new MemoryWatcher<double>(new DeepPointer(FrameFoundAddr - vars.GameBaseAddr));
+						if (FrameFoundAddrValue.ToString().All(Char.IsDigit))
+						{
+							vars.Room = new MemoryWatcher<int>(RoomPtr);
+							vars.FrameCount = new MemoryWatcher<double>(new DeepPointer(FrameFoundAddr - vars.GameBaseAddr));
 
-						vars.Dbg("Found frame counter address at 0x" + FrameFoundAddr.ToString("X"));
-						break;
+							vars.Dbg("Found frame counter address at 0x" + FrameFoundAddr.ToString("X"));
+							break;
+						}
 					}
 
 					offset++;
-
 					if (offset > 20000) offset = 0;
 				}
 
@@ -90,7 +93,8 @@ update
 
 start
 {
-	return vars.FrameCount.Current > vars.FrameCount.Old;
+	var x = vars.FrameCount.Current - vars.FrameCount.Old;
+	return x >= 1 && x < 5;
 }
 
 split
