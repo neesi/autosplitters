@@ -127,3 +127,5 @@ shutdown
 {
 	if (vars.ScanThreadReady) vars.CancelSource.Cancel();
 }
+
+// v0.1.0 08-Nov-2021
