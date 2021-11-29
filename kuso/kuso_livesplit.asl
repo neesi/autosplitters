@@ -1,67 +1,286 @@
-state("kuso", "Could not load game.") { }
+state("kuso") {}
 
-state("kuso", "kuso") {
+startup
+{
+	settings.Add("SleepMargin", false, "SleepMargin -- Fix low FPS");
+	settings.Add("SleepMargin1", false, "1", "SleepMargin");
+	settings.Add("SleepMargin10", false, "10", "SleepMargin");
+	settings.Add("SleepMargin40", false, "40", "SleepMargin");
+	settings.Add("SleepMargin80", false, "80", "SleepMargin");
+	settings.Add("SleepMargin200", false, "200", "SleepMargin");
+	settings.SetToolTip("SleepMargin", "Highest checked value is used. Uncheck to set game default.");
 
-  int    LevelID    : 0x6C2DB8;
-  double Framecount : 0x4B2780, 0x2C, 0x10, 0x90, 0x70;
+	vars.ScanThreadReady = false;
+	vars.Log = (Action<dynamic>) ((output) => print("[kuso ASL] " + output));
 }
 
-startup {
+init
+{
+	vars.State = 2;
 
-  refreshRate    = 120;
-  vars.GameRetry = 0;
-  vars.GameStop  = "Could not load game.";
+	vars.RoomPtrFound = false;
+	vars.MiscPtrFound = false;
+	vars.SleepMarginPtrFound = false;
 
-  settings.Add("",                                                                     false);
-  settings.Add("                      LiveSplit autosplitter for LOVE 2: kuso",        false);
-  settings.Add(" ",                                                                    false);
-  settings.Add("   - Autostarts the timer.",                                           false);
-  settings.Add("   - Autosplits after each level, so make a total of:",                false);
-  settings.Add("       25 Split Segments for kuso level set.",                         false);
-  settings.Add("       16 Split Segments for LOVE level set.",                         false);
-  settings.Add("       41 Split Segments for LOVE + kuso level set.",                  false);
-  settings.Add("   - Autoresets, except after the final split (completed run).",       false);
-  settings.Add("  ",                                                                   false);
-  settings.Add("   Right-click Splits -> Compare Against: Game Time (important).",     false);
-  settings.Add("   \"Game Time\" stays in sync with the game's framecounter.",         false);
-  settings.Add("   ",                                                                  false);
-  settings.Add("-------------------------------------------------------------------------------------------",  false);
-  settings.Add("IL_Splits_kuso", true, "  <----  Enable automatic splits for IL mode.");
-  settings.Add("------------------------------------------------------------------------------------------- ", false);
-  settings.Add("    ",                                                                 false);
-  settings.Add("   If you see \"Game Version: Could not load game.\" near top-right,", false);
-  settings.Add("   there may have been an update for kuso and this script needs",      false);
-  settings.Add("   to be updated as well to work with the game's new version.",        false);
-  settings.Add("     ",                                                                false);
-  settings.Add("   I'll check up on kuso updates every once in a while (or not).",     false);
-  settings.Add("      ",                                                               false);
-  settings.Add("   v0.0.5-p5  23-May-2020    https://neesi.github.io/autosplitters/",  false);
+	vars.CancelSource = new CancellationTokenSource();
+	vars.ScanThread = new Thread(() =>
+	{
+		vars.ScanThreadReady = true;
+		var GameBaseAddr = (int) game.MainModule.BaseAddress;
+
+		vars.Log("Starting scan thread.");
+		vars.Log("game.MainModule.BaseAddress = 0x" + GameBaseAddr.ToString("X"));
+
+		var RoomTrg = new SigScanTarget(1, "A1 ?? ?? ?? ?? 50 A3 ?? ?? ?? ?? C7");
+		var MiscTrg = new SigScanTarget(2, "8B 35 ?? ?? ?? ?? 85 F6 75 10 B9");
+		var SleepMarginTrg = new SigScanTarget(11, "8B ?? ?? ?? ?? ?? ?? 83 C4 0C A3 ?? ?? ?? ?? C6");
+
+		foreach (var trg in new[] { RoomTrg, MiscTrg, SleepMarginTrg })
+			trg.OnFound = (p, s, ptr) => p.ReadPointer(ptr);
+
+		IntPtr RoomPtr = IntPtr.Zero, MiscPtr = IntPtr.Zero, SleepMarginPtr = IntPtr.Zero;
+
+		var token = vars.CancelSource.Token;
+		while (!token.IsCancellationRequested)
+		{
+			var scanner = new SignatureScanner(game, game.MainModule.BaseAddress, game.MainModule.ModuleMemorySize);
+
+			if (RoomPtr == IntPtr.Zero)
+				RoomPtr = scanner.Scan(RoomTrg);
+
+			if (MiscPtr == IntPtr.Zero)
+				MiscPtr = scanner.Scan(MiscTrg);
+
+			if (SleepMarginPtr == IntPtr.Zero)
+				SleepMarginPtr = scanner.Scan(SleepMarginTrg);
+
+			if (RoomPtr != IntPtr.Zero)
+			{
+				var RoomValue = game.ReadValue<int>(RoomPtr);
+
+				vars.Log("Room address = 0x" + RoomPtr.ToString("X"));
+				vars.Log("Room value = (int) " + RoomValue);
+
+				if (RoomValue > 0 && RoomValue < 500)
+					vars.RoomPtrFound = true;
+			}
+
+			if (MiscPtr != IntPtr.Zero)
+			{
+				var MiscPtrValue = game.ReadValue<int>(MiscPtr);
+
+				vars.Log("Misc pointer = 0x" + MiscPtr.ToString("X"));
+				vars.Log("Misc pointer value = (hex) " + MiscPtrValue.ToString("X"));
+
+				if (MiscPtrValue > GameBaseAddr)
+				{
+					vars.MiscSearchBase = game.ReadValue<int>(MiscPtr) - 6000;
+					vars.Log("Misc search base = (hex) " + vars.MiscSearchBase.ToString("X"));
+					vars.MiscPtrFound = true;
+				}
+			}
+
+			if (SleepMarginPtr != IntPtr.Zero)
+			{
+				var SleepMarginValue = game.ReadValue<int>(SleepMarginPtr);
+				vars.SleepMarginOriginalBytes = game.ReadBytes((IntPtr) SleepMarginPtr, 4);
+				vars.SleepMarginPtr = SleepMarginPtr;
+
+				vars.Log("Sleep Margin address = 0x" + SleepMarginPtr.ToString("X"));
+				vars.Log("Sleep Margin value = (int) " + SleepMarginValue);
+
+				if (SleepMarginValue >= 0 && vars.RoomPtrFound)
+					vars.SleepMarginPtrFound = true;
+			}
+
+			if (vars.MiscPtrFound && vars.SleepMarginPtrFound)
+			{
+				vars.Log("Found all pointers. Searching for Game Mode and Frame Counter addresses..");
+
+				var GameModeFound = false;
+				var FrameCountFound = false;
+
+				int offset = 0;
+				while (!token.IsCancellationRequested)
+				{
+					var MiscSearchOffset = vars.MiscSearchBase + offset;
+
+					if (!GameModeFound && game.ReadValue<double>((IntPtr) MiscSearchOffset) == -2 && game.ReadValue<double>((IntPtr) MiscSearchOffset + 4) == 4474615)
+					{
+						vars.GameModeFoundAddr = MiscSearchOffset - 28;
+						var GameModeFoundAddrValue = game.ReadValue<double>((IntPtr) vars.GameModeFoundAddr);
+
+						if (GameModeFoundAddrValue.ToString().All(Char.IsDigit))
+						{
+							GameModeFound = true;
+							vars.Log("Game Mode address = 0x" + vars.GameModeFoundAddr.ToString("X"));
+							vars.Log("Game Mode value = (double) " + GameModeFoundAddrValue);
+						}
+					}
+
+					if (!FrameCountFound && game.ReadValue<double>((IntPtr) MiscSearchOffset) == 1800)
+					{
+						vars.FrameCountFoundAddr = MiscSearchOffset + 224;
+						var FrameCountFoundAddrValue = game.ReadValue<double>((IntPtr) vars.FrameCountFoundAddr);
+
+						if (FrameCountFoundAddrValue.ToString().All(Char.IsDigit))
+						{
+							FrameCountFound = true;
+							vars.Log("Frame Counter address = 0x" + vars.FrameCountFoundAddr.ToString("X"));
+							vars.Log("Frame Counter value = (double) " + FrameCountFoundAddrValue);
+						}
+					}
+
+					if (GameModeFound && FrameCountFound)
+					{
+						vars.Room = new MemoryWatcher<int>(RoomPtr);
+						vars.GameMode = new MemoryWatcher<double>(new DeepPointer(vars.GameModeFoundAddr - GameBaseAddr));
+						vars.FrameCount = new MemoryWatcher<double>(new DeepPointer(vars.FrameCountFoundAddr - GameBaseAddr));
+
+						vars.Log("All done.");
+						break;
+					}
+
+					offset++;
+					if (offset > 200000) offset = 0;
+				}
+
+				break;
+			}
+
+			vars.Log("Scan failed. Retrying.");
+			Thread.Sleep(2000);
+		}
+	});
+
+	vars.ScanThread.Start();
 }
 
-init {
+update
+{
+	try
+	{
+		if (vars.SleepMarginPtrFound)
+		{
+			var SleepMarginCurrentBytes = BitConverter.ToString(game.ReadBytes((IntPtr) vars.SleepMarginPtr, 4));
 
-  vars.GameRetry++;
-  vars.GameFailed  = "Game failed to load. Retrying (" + vars.GameRetry + ")";
-  vars.GameSize    = modules.First().ModuleMemorySize;
-  vars.GameVersion = modules.First().FileVersionInfo.FileVersion;
-  vars.GameCopr    = modules.First().FileVersionInfo.LegalCopyright;
+			if (settings["SleepMargin"])
+			{
+				vars.State = 1;
 
-  print("ModuleMemorySize = \"" + vars.GameSize.ToString() + "\"");
-  print("FileVersion      = \"" + vars.GameVersion.ToString() + "\"");
-  print("LegalCopyright   = \"" + vars.GameCopr.ToString() + "\"");
+				if (settings["SleepMargin200"])
+					vars.SleepMarginChecked = new byte[] { 0xC8, 0x00, 0x00, 0x00 };
 
-  if      (vars.GameRetry > 50)               { version = vars.GameStop; vars.GameRetry = 0; }
-  else if (vars.GameSize != 7659520)          { throw new Exception(vars.GameFailed); }
-  else if (vars.GameCopr == "Fred Wood 2017") { version = "kuso"; }
-  else                                        { version = vars.GameStop; vars.GameRetry = 0; }
+				else if (settings["SleepMargin80"])
+					vars.SleepMarginChecked = new byte[] { 0x50, 0x00, 0x00, 0x00 };
+
+				else if (settings["SleepMargin40"])
+					vars.SleepMarginChecked = new byte[] { 0x28, 0x00, 0x00, 0x00 };
+
+				else if (settings["SleepMargin10"])
+					vars.SleepMarginChecked = new byte[] { 0x0A, 0x00, 0x00, 0x00 };
+
+				else if (settings["SleepMargin1"])
+					vars.SleepMarginChecked = new byte[] { 0x01, 0x00, 0x00, 0x00 };
+
+				else vars.SleepMarginChecked = vars.SleepMarginOriginalBytes;
+
+				if (SleepMarginCurrentBytes != BitConverter.ToString(vars.SleepMarginChecked))
+				{
+					game.Suspend();
+					game.WriteBytes((IntPtr) vars.SleepMarginPtr, (byte[]) vars.SleepMarginChecked);
+				}
+			}
+
+			else if (!settings["SleepMargin"] && vars.State == 1)
+			{
+				vars.State = 0;
+
+				if (SleepMarginCurrentBytes != BitConverter.ToString(vars.SleepMarginOriginalBytes))
+				{
+					game.Suspend();
+					game.WriteBytes((IntPtr) vars.SleepMarginPtr, (byte[]) vars.SleepMarginOriginalBytes);
+				}
+			}
+		}
+	}
+	catch (Exception e)
+	{
+		game.Resume();
+		vars.Log(e.ToString());
+	}
+	finally
+	{
+		game.Resume();
+	}
+
+	if (vars.ScanThread.IsAlive) return false;
+
+	vars.Room.Update(game);
+	vars.GameMode.Update(game);
+	vars.FrameCount.Update(game);
 }
 
-update { if (version == vars.GameStop) { return false; } }
+start
+{
+	var x = vars.FrameCount.Current - vars.FrameCount.Old;
+	return x >= 1 && x <= 3;
+}
 
-exit   { vars.GameRetry = 0; } isLoading { return true; } gameTime { return TimeSpan.FromSeconds(current.Framecount / 60); }
+split
+{
+	return vars.Room.Changed && vars.GameMode.Current != 5 && vars.FrameCount.Current > 90;
+}
 
-reset  { if (current.LevelID <= 54 && current.Framecount < old.Framecount || current.LevelID < 3 || current.LevelID > 54 && current.LevelID < 62) { return true; } }
+reset
+{
+	return vars.FrameCount.Old > vars.FrameCount.Current ||
+	       vars.Room.Current > 0 && vars.Room.Current < 3 ||
+	       vars.Room.Old > vars.Room.Current && vars.Room.Current < 12 && vars.GameMode.Current != 5;
+}
 
-split  { if (current.LevelID == old.LevelID + 1 || current.LevelID != old.LevelID && (current.LevelID == 62 || current.LevelID == 63 && settings["IL_Splits_kuso"] || current.LevelID == 65 || current.LevelID == 66)) { return true; } }
+gameTime
+{
+	return TimeSpan.FromSeconds(vars.FrameCount.Current / 60f);
+}
 
-start  { if (current.LevelID >= 3 && current.LevelID <= 54) { return true; } }
+isLoading
+{
+	return true;
+}
+
+exit
+{
+	vars.CancelSource.Cancel();
+}
+
+shutdown
+{
+	if (vars.ScanThreadReady) vars.CancelSource.Cancel();
+	if (game == null) return;
+
+	try
+	{
+		if (vars.SleepMarginPtrFound)
+		{
+			var SleepMarginCurrentBytes = BitConverter.ToString(game.ReadBytes((IntPtr) vars.SleepMarginPtr, 4));
+
+			if (SleepMarginCurrentBytes != BitConverter.ToString(vars.SleepMarginOriginalBytes))
+			{
+				game.Suspend();
+				game.WriteBytes((IntPtr) vars.SleepMarginPtr, (byte[]) vars.SleepMarginOriginalBytes);
+			}
+		}
+	}
+	catch (Exception e)
+	{
+		game.Resume();
+		vars.Log(e.ToString());
+	}
+	finally
+	{
+		game.Resume();
+	}
+}
+
+// v0.1.0 29-Nov-2021
