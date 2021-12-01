@@ -25,8 +25,8 @@ init
 
 		IntPtr RoomPtr = IntPtr.Zero, MiscPtr = IntPtr.Zero;
 
-		vars.RoomPtrFound = false;
-		vars.MiscPtrFound = false;
+		var RoomPtrFound = false;
+		var MiscPtrFound = false;
 
 		var token = vars.CancelSource.Token;
 		while (!token.IsCancellationRequested)
@@ -47,7 +47,7 @@ init
 				vars.Log("Room value = (int) " + RoomValue);
 
 				if (RoomValue > 0 && RoomValue < 500)
-					vars.RoomPtrFound = true;
+					RoomPtrFound = true;
 			}
 
 			if (MiscPtr != IntPtr.Zero)
@@ -61,11 +61,11 @@ init
 				{
 					vars.MiscSearchBase = game.ReadValue<int>(MiscPtr) - 6000;
 					vars.Log("Misc search base = (hex) " + vars.MiscSearchBase.ToString("X"));
-					vars.MiscPtrFound = true;
+					MiscPtrFound = true;
 				}
 			}
 
-			if (vars.RoomPtrFound && vars.MiscPtrFound)
+			if (RoomPtrFound && MiscPtrFound)
 			{
 				vars.Log("Found all pointers. Searching for Time Attack and Frame Counter addresses..");
 
@@ -178,4 +178,4 @@ shutdown
 	if (vars.ScanThreadReady) vars.CancelSource.Cancel();
 }
 
-// v0.1.0 29-Nov-2021
+// v0.1.1 01-Dec-2021
