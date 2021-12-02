@@ -90,9 +90,9 @@ init
 
 						if (!TimeAttackFound && (TimeAttackFoundAddrValue == 0 || TimeAttackFoundAddrValue == 1))
 						{
-							TimeAttackFound = true;
 							vars.Log("Time Attack address = 0x" + vars.TimeAttackFoundAddr.ToString("X"));
 							vars.Log("Time Attack value = (double) " + TimeAttackFoundAddrValue);
+							TimeAttackFound = true;
 						}
 
 						vars.FrameCountFoundAddr = MiscSearchOffset + 124;
@@ -100,9 +100,9 @@ init
 
 						if (!FrameCountFound && FrameCountFoundAddrValue.ToString().All(Char.IsDigit))
 						{
-							FrameCountFound = true;
 							vars.Log("Frame Counter address = 0x" + vars.FrameCountFoundAddr.ToString("X"));
 							vars.Log("Frame Counter value = (double) " + FrameCountFoundAddrValue);
+							FrameCountFound = true;
 						}
 					}
 
@@ -180,4 +180,4 @@ shutdown
 	if (vars.ScanThreadReady) vars.CancelSource.Cancel();
 }
 
-// v0.1.2 02-Dec-2021
+// v0.1.3 02-Dec-2021

@@ -111,9 +111,9 @@ init
 
 						if (GameModeFoundAddrValue.ToString().All(Char.IsDigit))
 						{
-							GameModeFound = true;
 							vars.Log("Game Mode address = 0x" + vars.GameModeFoundAddr.ToString("X"));
 							vars.Log("Game Mode value = (double) " + GameModeFoundAddrValue);
+							GameModeFound = true;
 						}
 					}
 
@@ -124,9 +124,9 @@ init
 
 						if (FrameCountFoundAddrValue.ToString().All(Char.IsDigit))
 						{
-							FrameCountFound = true;
 							vars.Log("Frame Counter address = 0x" + vars.FrameCountFoundAddr.ToString("X"));
 							vars.Log("Frame Counter value = (double) " + FrameCountFoundAddrValue);
+							FrameCountFound = true;
 						}
 					}
 
@@ -298,4 +298,4 @@ shutdown
 	}
 }
 
-// v0.1.3 02-Dec-2021
+// v0.1.4 02-Dec-2021
