@@ -16,8 +16,6 @@ startup
 
 init
 {
-	vars.State = 2;
-
 	var RoomPtrFound = false;
 	var MiscPtrFound = false;
 	vars.SleepMarginPtrFound = false;
@@ -88,6 +86,7 @@ init
 				var SleepMarginValue = game.ReadValue<int>(SleepMarginPtr);
 				vars.SleepMarginOriginalBytes = game.ReadBytes((IntPtr) SleepMarginPtr, 4);
 				vars.SleepMarginPtr = SleepMarginPtr;
+				vars.SleepMarginChecked = false;
 
 				vars.Log("Sleep Margin address = 0x" + SleepMarginPtr.ToString("X"));
 				vars.Log("Sleep Margin value = (int) " + SleepMarginValue);
@@ -142,6 +141,8 @@ init
 			vars.Log("Scan failed. Retrying.");
 			Thread.Sleep(2000);
 		}
+
+		vars.Log("Exiting scan thread.");
 	});
 
 	vars.ScanThread.Start();
@@ -153,33 +154,33 @@ update
 	{
 		if (settings["SleepMargin"])
 		{
-			vars.State = 1;
+			vars.SleepMarginChecked = true;
 
 			if (settings["SleepMargin200"])
-				vars.SleepMarginChecked = new byte[] { 0xC8, 0x00, 0x00, 0x00 };
+				vars.SleepMarginCheckedBytes = new byte[] { 0xC8, 0x00, 0x00, 0x00 };
 
 			else if (settings["SleepMargin80"])
-				vars.SleepMarginChecked = new byte[] { 0x50, 0x00, 0x00, 0x00 };
+				vars.SleepMarginCheckedBytes = new byte[] { 0x50, 0x00, 0x00, 0x00 };
 
 			else if (settings["SleepMargin40"])
-				vars.SleepMarginChecked = new byte[] { 0x28, 0x00, 0x00, 0x00 };
+				vars.SleepMarginCheckedBytes = new byte[] { 0x28, 0x00, 0x00, 0x00 };
 
 			else if (settings["SleepMargin10"])
-				vars.SleepMarginChecked = new byte[] { 0x0A, 0x00, 0x00, 0x00 };
+				vars.SleepMarginCheckedBytes = new byte[] { 0x0A, 0x00, 0x00, 0x00 };
 
 			else if (settings["SleepMargin1"])
-				vars.SleepMarginChecked = new byte[] { 0x01, 0x00, 0x00, 0x00 };
+				vars.SleepMarginCheckedBytes = new byte[] { 0x01, 0x00, 0x00, 0x00 };
 
-			else vars.SleepMarginChecked = vars.SleepMarginOriginalBytes;
+			else vars.SleepMarginCheckedBytes = vars.SleepMarginOriginalBytes;
 
 			var SleepMarginCurrentBytes = BitConverter.ToString(game.ReadBytes((IntPtr) vars.SleepMarginPtr, 4));
 
-			if (SleepMarginCurrentBytes != BitConverter.ToString(vars.SleepMarginChecked))
+			if (SleepMarginCurrentBytes != BitConverter.ToString(vars.SleepMarginCheckedBytes))
 			{
 				try
 				{
 					game.Suspend();
-					game.WriteBytes((IntPtr) vars.SleepMarginPtr, (byte[]) vars.SleepMarginChecked);
+					game.WriteBytes((IntPtr) vars.SleepMarginPtr, (byte[]) vars.SleepMarginCheckedBytes);
 				}
 				catch (Exception e)
 				{
@@ -193,9 +194,9 @@ update
 			}
 		}
 
-		else if (!settings["SleepMargin"] && vars.State == 1)
+		else if (!settings["SleepMargin"] && vars.SleepMarginChecked)
 		{
-			vars.State = 0;
+			vars.SleepMarginChecked = false;
 
 			var SleepMarginCurrentBytes = BitConverter.ToString(game.ReadBytes((IntPtr) vars.SleepMarginPtr, 4));
 
@@ -300,4 +301,4 @@ shutdown
 	}
 }
 
-// v0.1.1 01-Dec-2021
+// v0.1.2 02-Dec-2021

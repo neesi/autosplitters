@@ -126,6 +126,8 @@ init
 			vars.Log("Scan failed. Retrying.");
 			Thread.Sleep(2000);
 		}
+
+		vars.Log("Exiting scan thread.");
 	});
 
 	vars.ScanThread.Start();
@@ -178,4 +180,4 @@ shutdown
 	if (vars.ScanThreadReady) vars.CancelSource.Cancel();
 }
 
-// v0.1.1 01-Dec-2021
+// v0.1.2 02-Dec-2021
