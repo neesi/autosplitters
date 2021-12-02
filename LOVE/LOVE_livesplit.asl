@@ -8,7 +8,7 @@ startup
 	settings.Add("SleepMargin40", false, "40", "SleepMargin");
 	settings.Add("SleepMargin80", false, "80", "SleepMargin");
 	settings.Add("SleepMargin200", false, "200", "SleepMargin");
-	settings.SetToolTip("SleepMargin", "Highest checked value is used. Uncheck to set game default.");
+	settings.SetToolTip("SleepMargin", "Greatest checked value is used. Uncheck to set game default.");
 
 	vars.ScanThreadReady = false;
 	vars.Log = (Action<dynamic>) ((output) => print("[LOVE ASL] " + output));
@@ -278,4 +278,4 @@ shutdown
 	}
 }
 
-// v0.1.3 02-Dec-2021
+// v0.1.4 02-Dec-2021
