@@ -218,13 +218,12 @@ update
 
 start
 {
-	var x = vars.FrameCount.Current - vars.FrameCount.Old;
-	return x >= 1 && x <= 3;
+	return !vars.Room.Changed && vars.FrameCount.Old + 1 == vars.FrameCount.Current;
 }
 
 split
 {
-	return vars.Room.Changed && vars.FrameCount.Current > 90;
+	return vars.Room.Changed && vars.FrameCount.Current > 10;
 }
 
 reset
@@ -278,4 +277,4 @@ shutdown
 	}
 }
 
-// v0.1.4 02-Dec-2021
+// v0.1.5 03-Dec-2021

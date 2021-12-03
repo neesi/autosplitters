@@ -144,19 +144,19 @@ update
 
 start
 {
-	var x = vars.FrameCount.Current - vars.FrameCount.Old;
-	return vars.TimeAttack.Current == 1 && x >= 1 && x <= 3;
+	return !vars.Room.Changed && vars.TimeAttack.Current == 1 && vars.FrameCount.Old + 1 == vars.FrameCount.Current;
 }
 
 split
 {
-	return vars.Room.Changed && vars.TimeAttack.Current == 1 && vars.FrameCount.Current > 90;
+	return vars.Room.Changed && vars.TimeAttack.Current == 1 && vars.FrameCount.Current > 10;
 }
 
 reset
 {
 	return vars.FrameCount.Old > vars.FrameCount.Current ||
 	       vars.Room.Current > 0 && vars.Room.Current < 6 ||
+	       vars.Room.Current == 11 ||
 	       vars.TimeAttack.Current == 0;
 }
 
@@ -180,4 +180,4 @@ shutdown
 	if (vars.ScanThreadReady) vars.CancelSource.Cancel();
 }
 
-// v0.1.3 02-Dec-2021
+// v0.1.4 03-Dec-2021

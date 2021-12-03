@@ -234,19 +234,18 @@ update
 	if (vars.Room.Old == 4 && vars.Room.Current > 4)
 		 vars.SubtractFrames = vars.SubtractFramesCache;
 
-	else if (vars.Room.Current == 4 && vars.FrameCount.Current > 90)
+	else if (vars.Room.Current == 4 && vars.FrameCount.Current > 10)
 		 vars.SubtractFramesCache = vars.FrameCount.Current;
 }
 
 start
 {
-	var x = vars.FrameCount.Current - vars.FrameCount.Old;
-	return x >= 1 && x <= 3;
+	return !vars.Room.Changed && vars.FrameCount.Old + 1 == vars.FrameCount.Current;
 }
 
 split
 {
-	return vars.Room.Current > vars.Room.Old && vars.Room.Old != 0 && vars.Room.Old != 4 ||
+	return vars.Room.Current > vars.Room.Old && vars.Room.Old > 4 ||
 	       vars.Room.Old > vars.Room.Current && vars.Room.Current == 4;
 }
 
@@ -301,4 +300,4 @@ shutdown
 	}
 }
 
-// v0.1.3 02-Dec-2021
+// v0.1.4 03-Dec-2021
