@@ -179,7 +179,6 @@ update
 				}
 				catch (Exception e)
 				{
-					game.Resume();
 					vars.Log(e.ToString());
 				}
 				finally
@@ -204,7 +203,6 @@ update
 				}
 				catch (Exception e)
 				{
-					game.Resume();
 					vars.Log(e.ToString());
 				}
 				finally
@@ -251,9 +249,8 @@ exit
 shutdown
 {
 	if (vars.ScanThreadReady) vars.CancelSource.Cancel();
-	if (game == null) return;
 
-	if (vars.SleepMarginPtrFound)
+	if (game != null && vars.SleepMarginPtrFound)
 	{
 		var SleepMarginCurrentBytes = BitConverter.ToString(game.ReadBytes((IntPtr) vars.SleepMarginPtr, 4));
 
@@ -266,7 +263,6 @@ shutdown
 			}
 			catch (Exception e)
 			{
-				game.Resume();
 				vars.Log(e.ToString());
 			}
 			finally
@@ -277,4 +273,4 @@ shutdown
 	}
 }
 
-// v0.1.5 03-Dec-2021
+// v0.1.6 05-Dec-2021
