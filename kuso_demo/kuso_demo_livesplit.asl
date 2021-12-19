@@ -10,23 +10,23 @@ startup
 	settings.Add("SleepMargin200", false, "200", "SleepMargin");
 	settings.SetToolTip("SleepMargin", "Greatest checked value is used. Uncheck to set game default.");
 
-	vars.ScanThreadReady = false;
 	vars.Log = (Action<dynamic>) ((output) => print("[kuso demo ASL] " + output));
+	vars.ScanThread = null;
 }
 
 init
 {
+	vars.SubtractFramesCache = 0;
+	vars.SubtractFrames = 0;
+
 	var RoomPtrFound = false;
 	var MiscPtrFound = false;
 	vars.SleepMarginPtrFound = false;
 
-	vars.SubtractFramesCache = 0;
-	vars.SubtractFrames = 0;
-
+	vars.ScanErrorList = new List<string>();
 	vars.CancelSource = new CancellationTokenSource();
 	vars.ScanThread = new Thread(() =>
 	{
-		vars.ScanThreadReady = true;
 		var GameBaseAddr = (int) game.MainModule.BaseAddress;
 
 		vars.Log("Starting scan thread.");
@@ -44,16 +44,18 @@ init
 		var token = vars.CancelSource.Token;
 		while (!token.IsCancellationRequested)
 		{
+			vars.ScanErrorList.Clear();
+
 			var scanner = new SignatureScanner(game, game.MainModule.BaseAddress, game.MainModule.ModuleMemorySize);
 
-			if (RoomPtr == IntPtr.Zero)
-				RoomPtr = scanner.Scan(RoomTrg);
+			if (RoomPtr == IntPtr.Zero && (RoomPtr = scanner.Scan(RoomTrg)) == IntPtr.Zero)
+				vars.ScanErrorList.Add("ERROR: Room pointer not found.");
 
-			if (MiscPtr == IntPtr.Zero)
-				MiscPtr = scanner.Scan(MiscTrg);
+			if (MiscPtr == IntPtr.Zero && (MiscPtr = scanner.Scan(MiscTrg)) == IntPtr.Zero)
+				vars.ScanErrorList.Add("ERROR: Misc pointer not found.");
 
-			if (SleepMarginPtr == IntPtr.Zero)
-				SleepMarginPtr = scanner.Scan(SleepMarginTrg);
+			if (SleepMarginPtr == IntPtr.Zero && (SleepMarginPtr = vars.SleepMarginPtr = scanner.Scan(SleepMarginTrg)) == IntPtr.Zero)
+				vars.ScanErrorList.Add("ERROR: SleepMargin pointer not found.");
 
 			if (RoomPtr != IntPtr.Zero)
 			{
@@ -62,16 +64,16 @@ init
 				vars.Log("Room address = 0x" + RoomPtr.ToString("X"));
 				vars.Log("Room value = (int) " + RoomValue);
 
-				if (RoomValue > 0 && RoomValue < 500)
-					RoomPtrFound = true;
+				if (RoomValue > 0 && RoomValue < 500) RoomPtrFound = true;
+				else vars.ScanErrorList.Add("ERROR: invalid Room value.");
 			}
 
 			if (MiscPtr != IntPtr.Zero)
 			{
 				var MiscPtrValue = game.ReadValue<int>(MiscPtr);
 
-				vars.Log("Misc pointer = 0x" + MiscPtr.ToString("X"));
-				vars.Log("Misc pointer value = (hex) " + MiscPtrValue.ToString("X"));
+				vars.Log("Misc address = 0x" + MiscPtr.ToString("X"));
+				vars.Log("Misc value = (hex) " + MiscPtrValue.ToString("X"));
 
 				if (MiscPtrValue > GameBaseAddr)
 				{
@@ -79,20 +81,27 @@ init
 					vars.Log("Misc search base = (hex) " + vars.MiscSearchBase.ToString("X"));
 					MiscPtrFound = true;
 				}
+				else vars.ScanErrorList.Add("ERROR: invalid Misc value.");
 			}
 
 			if (SleepMarginPtr != IntPtr.Zero)
 			{
 				var SleepMarginValue = game.ReadValue<int>(SleepMarginPtr);
-				vars.SleepMarginOriginalBytes = game.ReadBytes((IntPtr) SleepMarginPtr, 4);
-				vars.SleepMarginPtr = SleepMarginPtr;
-				vars.SleepMarginChecked = false;
 
-				vars.Log("Sleep Margin address = 0x" + SleepMarginPtr.ToString("X"));
-				vars.Log("Sleep Margin value = (int) " + SleepMarginValue);
+				vars.Log("SleepMargin address = 0x" + SleepMarginPtr.ToString("X"));
+				vars.Log("SleepMargin value = (int) " + SleepMarginValue);
 
-				if (SleepMarginValue >= 0 && RoomPtrFound)
-					vars.SleepMarginPtrFound = true;
+				if (SleepMarginValue >= 0)
+				{
+					if (RoomPtrFound)
+					{
+						vars.SleepMarginOriginalBytes = game.ReadBytes((IntPtr) SleepMarginPtr, 4);
+						vars.SleepMarginWriteBytes = new byte[0];
+						vars.SleepMarginChecked = false;
+						vars.SleepMarginPtrFound = true;
+					}
+				}
+				else vars.ScanErrorList.Add("ERROR: invalid SleepMargin value.");
 			}
 
 			if (MiscPtrFound && vars.SleepMarginPtrFound)
@@ -138,6 +147,7 @@ init
 				break;
 			}
 
+			vars.ScanErrorList.ForEach(vars.Log);
 			vars.Log("Scan failed. Retrying.");
 			Thread.Sleep(2000);
 		}
@@ -176,21 +186,7 @@ update
 			var SleepMarginCurrentBytes = BitConverter.ToString(game.ReadBytes((IntPtr) vars.SleepMarginPtr, 4));
 
 			if (SleepMarginCurrentBytes != BitConverter.ToString(vars.SleepMarginCheckedBytes))
-			{
-				try
-				{
-					game.Suspend();
-					game.WriteBytes((IntPtr) vars.SleepMarginPtr, (byte[]) vars.SleepMarginCheckedBytes);
-				}
-				catch (Exception e)
-				{
-					vars.Log(e.ToString());
-				}
-				finally
-				{
-					game.Resume();
-				}
-			}
+				vars.SleepMarginWriteBytes = vars.SleepMarginCheckedBytes;
 		}
 
 		else if (!settings["SleepMargin"] && vars.SleepMarginChecked)
@@ -200,20 +196,24 @@ update
 			var SleepMarginCurrentBytes = BitConverter.ToString(game.ReadBytes((IntPtr) vars.SleepMarginPtr, 4));
 
 			if (SleepMarginCurrentBytes != BitConverter.ToString(vars.SleepMarginOriginalBytes))
+				vars.SleepMarginWriteBytes = vars.SleepMarginOriginalBytes;
+		}
+
+		if (vars.SleepMarginWriteBytes.Length > 0)
+		{
+			try
 			{
-				try
-				{
-					game.Suspend();
-					game.WriteBytes((IntPtr) vars.SleepMarginPtr, (byte[]) vars.SleepMarginOriginalBytes);
-				}
-				catch (Exception e)
-				{
-					vars.Log(e.ToString());
-				}
-				finally
-				{
-					game.Resume();
-				}
+				game.Suspend();
+				game.WriteBytes((IntPtr) vars.SleepMarginPtr, (byte[]) vars.SleepMarginWriteBytes);
+			}
+			catch (Exception e)
+			{
+				vars.Log(e.ToString());
+			}
+			finally
+			{
+				game.Resume();
+				vars.SleepMarginWriteBytes = new byte[0];
 			}
 		}
 	}
@@ -271,7 +271,7 @@ exit
 
 shutdown
 {
-	if (vars.ScanThreadReady) vars.CancelSource.Cancel();
+	if (vars.ScanThread != null) vars.CancelSource.Cancel();
 
 	if (game != null && vars.SleepMarginPtrFound)
 	{
@@ -296,4 +296,4 @@ shutdown
 	}
 }
 
-// v0.1.5 05-Dec-2021
+// v0.1.6 19-Dec-2021

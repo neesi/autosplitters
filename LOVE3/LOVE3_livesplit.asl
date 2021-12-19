@@ -2,16 +2,19 @@ state("LOVE3") {}
 
 startup
 {
-	vars.ScanThreadReady = false;
 	vars.Log = (Action<dynamic>) ((output) => print("[LOVE 3 ASL] " + output));
+	vars.ScanThread = null;
 }
 
 init
 {
+	var RoomPtrFound = false;
+	var MiscPtrFound = false;
+
+	vars.ScanErrorList = new List<string>();
 	vars.CancelSource = new CancellationTokenSource();
 	vars.ScanThread = new Thread(() =>
 	{
-		vars.ScanThreadReady = true;
 		var GameBaseAddr = (int) game.MainModule.BaseAddress;
 
 		vars.Log("Starting scan thread.");
@@ -25,19 +28,18 @@ init
 
 		IntPtr RoomPtr = IntPtr.Zero, MiscPtr = IntPtr.Zero;
 
-		var RoomPtrFound = false;
-		var MiscPtrFound = false;
-
 		var token = vars.CancelSource.Token;
 		while (!token.IsCancellationRequested)
 		{
+			vars.ScanErrorList.Clear();
+
 			var scanner = new SignatureScanner(game, game.MainModule.BaseAddress, game.MainModule.ModuleMemorySize);
 
-			if (RoomPtr == IntPtr.Zero)
-				RoomPtr = scanner.Scan(RoomTrg);
+			if (RoomPtr == IntPtr.Zero && (RoomPtr = scanner.Scan(RoomTrg)) == IntPtr.Zero)
+				vars.ScanErrorList.Add("ERROR: Room pointer not found.");
 
-			if (MiscPtr == IntPtr.Zero)
-				MiscPtr = scanner.Scan(MiscTrg);
+			if (MiscPtr == IntPtr.Zero && (MiscPtr = scanner.Scan(MiscTrg)) == IntPtr.Zero)
+				vars.ScanErrorList.Add("ERROR: Misc pointer not found.");
 
 			if (RoomPtr != IntPtr.Zero)
 			{
@@ -46,16 +48,16 @@ init
 				vars.Log("Room address = 0x" + RoomPtr.ToString("X"));
 				vars.Log("Room value = (int) " + RoomValue);
 
-				if (RoomValue > 0 && RoomValue < 500)
-					RoomPtrFound = true;
+				if (RoomValue > 0 && RoomValue < 500) RoomPtrFound = true;
+				else vars.ScanErrorList.Add("ERROR: invalid Room value.");
 			}
 
 			if (MiscPtr != IntPtr.Zero)
 			{
 				var MiscPtrValue = game.ReadValue<int>(MiscPtr);
 
-				vars.Log("Misc pointer = 0x" + MiscPtr.ToString("X"));
-				vars.Log("Misc pointer value = (hex) " + MiscPtrValue.ToString("X"));
+				vars.Log("Misc address = 0x" + MiscPtr.ToString("X"));
+				vars.Log("Misc value = (hex) " + MiscPtrValue.ToString("X"));
 
 				if (MiscPtrValue > GameBaseAddr)
 				{
@@ -63,6 +65,7 @@ init
 					vars.Log("Misc search base = (hex) " + vars.MiscSearchBase.ToString("X"));
 					MiscPtrFound = true;
 				}
+				else vars.ScanErrorList.Add("ERROR: invalid Misc value.");
 			}
 
 			if (RoomPtrFound && MiscPtrFound)
@@ -84,7 +87,6 @@ init
 					    game.ReadValue<int>((IntPtr) MiscSearchOffset + 33) == 16777216 &&
 					    game.ReadValue<int>((IntPtr) MiscSearchOffset + 65) == 16777216 &&
 					    game.ReadValue<int>((IntPtr) MiscSearchOffset + 80) == 2021161080)
-
 					{
 						vars.TimeAttackFoundAddr = MiscSearchOffset + 72;
 						var TimeAttackFoundAddrValue = game.ReadValue<double>((IntPtr) vars.TimeAttackFoundAddr);
@@ -113,7 +115,7 @@ init
 						vars.TimeAttack = new MemoryWatcher<double>(new DeepPointer(vars.TimeAttackFoundAddr - GameBaseAddr));
 						vars.FrameCount = new MemoryWatcher<double>(new DeepPointer(vars.FrameCountFoundAddr - GameBaseAddr));
 
-						vars.Log("All done. Note: the script works in Time Attack mode only.");
+						vars.Log("All done. Note: the script works in Time Attack mode only (including Level Select).");
 						break;
 					}
 
@@ -124,6 +126,7 @@ init
 				break;
 			}
 
+			vars.ScanErrorList.ForEach(vars.Log);
 			vars.Log("Scan failed. Retrying.");
 			Thread.Sleep(2000);
 		}
@@ -178,7 +181,7 @@ exit
 
 shutdown
 {
-	if (vars.ScanThreadReady) vars.CancelSource.Cancel();
+	if (vars.ScanThread != null) vars.CancelSource.Cancel();
 }
 
-// v0.1.0 07-Dec-2021
+// v0.1.1 19-Dec-2021
