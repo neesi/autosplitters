@@ -209,7 +209,7 @@ update
 	if (vars.Room.Old == 4 && vars.Room.Current > 4)
 		 vars.SubtractFrames = vars.SubtractFramesCache;
 
-	else if (vars.Room.Current == 4 && vars.FrameCount.Current > 10)
+	else if (vars.Room.Current == 4 && vars.FrameCount.Current > 90)
 		 vars.SubtractFramesCache = vars.FrameCount.Current;
 }
 
@@ -251,4 +251,4 @@ shutdown
 	if (vars.ScanThread != null) vars.CancelSource.Cancel();
 }
 
-// v0.1.7 20-Dec-2021
+// v0.1.8 23-Dec-2021

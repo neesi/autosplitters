@@ -150,7 +150,7 @@ start
 
 split
 {
-	return vars.Room.Changed && vars.TimeAttack.Current == 1 && vars.FrameCount.Current > 10;
+	return vars.Room.Changed && vars.TimeAttack.Current == 1 && vars.FrameCount.Current > 90;
 }
 
 reset
@@ -181,4 +181,4 @@ shutdown
 	if (vars.ScanThread != null) vars.CancelSource.Cancel();
 }
 
-// v0.1.6 19-Dec-2021
+// v0.1.7 23-Dec-2021

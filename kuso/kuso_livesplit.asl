@@ -218,7 +218,7 @@ start
 
 split
 {
-	return vars.Room.Changed && vars.GameMode.Current != 5 && vars.FrameCount.Current > 10;
+	return vars.Room.Changed && vars.GameMode.Current != 5 && vars.FrameCount.Current > 90;
 }
 
 reset
@@ -248,4 +248,4 @@ shutdown
 	if (vars.ScanThread != null) vars.CancelSource.Cancel();
 }
 
-// v0.1.8 20-Dec-2021
+// v0.1.9 23-Dec-2021
