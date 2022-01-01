@@ -98,7 +98,7 @@ init
 							TimeAttackFound = true;
 						}
 
-						vars.FrameCountFoundAddr = MiscSearchOffset + 136;
+						vars.FrameCountFoundAddr = MiscSearchOffset + 152;
 						var FrameCountFoundAddrValue = game.ReadValue<double>((IntPtr) vars.FrameCountFoundAddr);
 
 						if (!FrameCountFound && FrameCountFoundAddrValue.ToString().All(Char.IsDigit))
@@ -184,4 +184,4 @@ shutdown
 	if (vars.ScanThread != null) vars.CancelSource.Cancel();
 }
 
-// v0.1.2 23-Dec-2021
+// v0.1.3 01-Jan-2022
