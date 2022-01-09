@@ -159,8 +159,8 @@ split
 reset
 {
 	return vars.FrameCount.Old > vars.FrameCount.Current ||
-	       vars.Room.Current == 19 ||
-	       vars.Room.Current == 54 ||
+	       vars.Room.Current == 21 ||
+	       vars.Room.Current == 64 ||
 	       vars.TimeAttack.Current == 0;
 }
 
@@ -184,4 +184,4 @@ shutdown
 	if (vars.ScanThread != null) vars.CancelSource.Cancel();
 }
 
-// v0.1.3 01-Jan-2022
+// v0.1.4 09-Jan-2022
