@@ -80,15 +80,11 @@ init
 				{
 					var MiscSearchOffset = vars.MiscSearchBase + offset;
 
-					if (game.ReadValue<int>((IntPtr) MiscSearchOffset) == 2021161080 &&
-					    game.ReadValue<int>((IntPtr) MiscSearchOffset + 12) == 2021161080 &&
-					    game.ReadValue<int>((IntPtr) MiscSearchOffset + 17) == 16777216 &&
-					    game.ReadValue<int>((IntPtr) MiscSearchOffset + 28) == 2021161080 &&
-					    game.ReadValue<int>((IntPtr) MiscSearchOffset + 33) == 16777216 &&
-					    game.ReadValue<int>((IntPtr) MiscSearchOffset + 65) == 16777216 &&
-					    game.ReadValue<int>((IntPtr) MiscSearchOffset + 80) == 2021161080)
+					if (game.ReadValue<int>((IntPtr) MiscSearchOffset) == 7 &&
+					    game.ReadValue<int>((IntPtr) MiscSearchOffset + 34) == 65536 &&
+					    game.ReadValue<int>((IntPtr) MiscSearchOffset + 83) == 512)
 					{
-						vars.TimeAttackFoundAddr = MiscSearchOffset + 72;
+						vars.TimeAttackFoundAddr = MiscSearchOffset - 280;
 						var TimeAttackFoundAddrValue = game.ReadValue<double>((IntPtr) vars.TimeAttackFoundAddr);
 
 						if (!TimeAttackFound && (TimeAttackFoundAddrValue == 0 || TimeAttackFoundAddrValue == 1))
@@ -98,7 +94,7 @@ init
 							TimeAttackFound = true;
 						}
 
-						vars.FrameCountFoundAddr = MiscSearchOffset + 152;
+						vars.FrameCountFoundAddr = MiscSearchOffset + 8;
 						var FrameCountFoundAddrValue = game.ReadValue<double>((IntPtr) vars.FrameCountFoundAddr);
 
 						if (!FrameCountFound && FrameCountFoundAddrValue.ToString().All(Char.IsDigit))
@@ -184,4 +180,4 @@ shutdown
 	if (vars.ScanThread != null) vars.CancelSource.Cancel();
 }
 
-// v0.1.4 09-Jan-2022
+// v0.1.5 21-Jan-2022
