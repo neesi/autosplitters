@@ -106,11 +106,11 @@ init
 				{
 					var MiscSearchAddr = vars.MiscSearchBase + offset;
 
-					if (game.ReadValue<int>((IntPtr) MiscSearchAddr) == 7 &&
-					    game.ReadValue<int>((IntPtr) MiscSearchAddr + 2) == 65536 &&
-					    game.ReadValue<int>((IntPtr) MiscSearchAddr + 99) == 512)
+					if (game.ReadValue<int>((IntPtr) MiscSearchAddr) == 65536 &&
+					    game.ReadValue<int>((IntPtr) MiscSearchAddr + 14) == 7 &&
+					    game.ReadValue<int>((IntPtr) MiscSearchAddr + 81) == 512)
 					{
-						vars.TimeAttackFoundAddr = MiscSearchAddr - 264;
+						vars.TimeAttackFoundAddr = MiscSearchAddr - 282;
 						var TimeAttackFoundAddrValue = game.ReadValue<double>((IntPtr) vars.TimeAttackFoundAddr);
 
 						if (!TimeAttackFound && (TimeAttackFoundAddrValue == 0 || TimeAttackFoundAddrValue == 1))
@@ -123,7 +123,7 @@ init
 							TimeAttackFound = true;
 						}
 
-						vars.FrameCountFoundAddr = MiscSearchAddr + 8;
+						vars.FrameCountFoundAddr = MiscSearchAddr + 22;
 						var FrameCountFoundAddrValue = game.ReadValue<double>((IntPtr) vars.FrameCountFoundAddr);
 
 						if (!FrameCountFound && FrameCountFoundAddrValue.ToString().All(Char.IsDigit))
@@ -240,4 +240,4 @@ shutdown
 	if (vars.ScanThread != null) vars.CancelSource.Cancel();
 }
 
-// v0.1.7 22-Jan-2022
+// v0.1.8 28-Jan-2022
