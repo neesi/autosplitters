@@ -4,7 +4,7 @@ startup
 {
 	vars.Log = (Action<dynamic>)(output => print("[LOVE 2: kuso Demo] " + output));
 
-	vars.PrintFrameChoiceChanges = false;
+	vars.PrintFrameCandidateChanges = false;
 	vars.PrintRoomNameChanges = false;
 
 	settings.Add("SleepMargin", false, "SleepMargin -- Fix low in-game FPS");
@@ -200,7 +200,7 @@ init
 							{
 								frameCandidates.Add(address);
 
-								if (vars.PrintFrameChoiceChanges)
+								if (vars.PrintFrameCandidateChanges)
 								{
 									vars.Log("Added " + address.ToString("X") + " " + addrPool[address] + ". frameCandidates.Count = " + frameCandidates.Count);
 								}
@@ -219,7 +219,7 @@ init
 						{
 							if (frameCandidates.Contains(address))
 							{
-								if (vars.PrintFrameChoiceChanges)
+								if (vars.PrintFrameCandidateChanges)
 								{
 									vars.Log("Removed " + address.ToString("X") + " " + addrPool[address] + ". frameCandidates.Count = " + (frameCandidates.Count - 1));
 								}
@@ -369,4 +369,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.1.9 02-Apr-2022
+// v0.2.0 02-Apr-2022
