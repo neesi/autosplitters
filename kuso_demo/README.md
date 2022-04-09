@@ -1,8 +1,8 @@
 ## LOVE 2: kuso (Demo) breaks all auto splitters
 
-***edit**: the splitter now fixes the %TEMP% deletion bug (you have to always load the splitter before closing the game), but you should still create the "!!!!!!!!!!!!!!!!!!!!!!!!" folder as described below.* <br><br>
+***edit**: the splitter now patches the %TEMP% deletion bug (you have to always load the splitter before closing the game), but you should still create the "!!!!!!!!!!!!!!!!!!!!!!!!" folder as described below.* <br><br>
 
-When you quit ***kuso demo***, it attempts to recursively delete the contents of %TEMP% folder (%LOCALAPPDATA%\Temp, usually C:\Users\name\AppData\Local\Temp) and if successful, it deletes the empty Temp folder.
+When exiting ***kuso demo***, it attempts to recursively delete the contents of %TEMP% folder (%LOCALAPPDATA%\Temp, usually C:\Users\name\AppData\Local\Temp) and if successful, it deletes the empty Temp folder.
 
 LiveSplit cannot load auto splitters without the ***Temp*** folder, so you have to stop kuso demo from deleting it.
 
