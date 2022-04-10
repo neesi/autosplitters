@@ -7,6 +7,8 @@ startup
 	vars.PrintFrameCandidateChanges = false;
 	vars.PrintRoomNameChanges = false;
 
+	vars.CancelSource = new CancellationTokenSource();
+
 	settings.Add("SleepMargin", false, "SleepMargin -- Fix low in-game FPS");
 	settings.SetToolTip("SleepMargin", "Greatest checked value is used. Uncheck all and restart game to set game default.");
 
@@ -83,7 +85,6 @@ init
 	vars.FrameCountFound = false;
 	vars.NewFrame = false;
 
-	vars.CancelSource = new CancellationTokenSource();
 	System.Threading.Tasks.Task.Run(async () =>
 	{
 		vars.Log("Task started. Target scanning..");
@@ -353,4 +354,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.2.3 10-Apr-2022
+// v0.2.4 10-Apr-2022
