@@ -64,7 +64,7 @@ init
 		"room_options"
 	};
 
-	vars.PointersFound = false;
+	vars.TargetsFound = false;
 	vars.FrameCountFound = false;
 	vars.NewFrame = false;
 
@@ -205,13 +205,13 @@ init
 
 			if (scanErrorList.Count == 0)
 			{
-				vars.PointersFound = true;
+				vars.TargetsFound = true;
 				vars.Log("Found all targets. Enter a level to grab Frame Counter address..");
 
 				var addrPool = new Dictionary<int, Tuple<double, int, int>>();
 				var frameCandidates = new List<int>();
 
-				int offset = 0x00;
+				int offset = 0x0;
 				while (!token.IsCancellationRequested && !vars.FrameCountFound)
 				{
 					offset += 0x10;
@@ -279,7 +279,7 @@ init
 						}
 					}
 
-					if (offset == 0x2000) offset = 0x00;
+					if (offset == 0x2000) offset = 0x0;
 
 					if (frameCandidates.Count >= 1)
 					{
@@ -316,7 +316,7 @@ init
 
 update
 {
-	if (!vars.PointersFound) return false;
+	if (!vars.TargetsFound) return false;
 
 	vars.SleepMargin();
 	vars.RoomNum.Update(game);
@@ -389,4 +389,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.2.2 10-Apr-2022
+// v0.2.3 11-Apr-2022

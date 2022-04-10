@@ -20,8 +20,6 @@ LiveSplit cannot load auto splitters without the ***Temp*** folder, so you have 
 
 5. Note that the !!!!!!!!!!!!!!!!!!!!!!!! folder might still get deleted when updating Windows, for example.
 
-6. Restart LiveSplit.
-
-7. Download the splitter [here](https://raw.githubusercontent.com/neesi/autosplitters/master/kuso_demo/kuso_demo_livesplit.asl). <br><br>
+6. Restart LiveSplit and load the splitter. <br><br>
 
 \*kuso demo reads the contents of the Temp folder in a specific order. Folders first, exclamation point first. So by using many exclamation points you pretty much ensure that it'll be the first thing the game reads. After the first failed attempt to delete something, it'll give up and leave rest of the folders / files alone.
