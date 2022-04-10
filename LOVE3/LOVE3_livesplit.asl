@@ -33,9 +33,9 @@ init
 	vars.CancelSource = new CancellationTokenSource();
 	System.Threading.Tasks.Task.Run(async () =>
 	{
-		int gameBaseAddr = (int) game.MainModule.BaseAddress;
+		vars.Log("Task started. Target scanning..");
 
-		vars.Log("Starting scan task.");
+		int gameBaseAddr = (int) game.MainModule.BaseAddress;
 		vars.Log("# game.MainModule.BaseAddress: 0x" + gameBaseAddr.ToString("X"));
 
 		var runTimeTrg = new SigScanTarget(4, "CC 53 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 56 57 83 CF FF");
@@ -123,7 +123,7 @@ init
 			if (scanErrorList.Count == 0)
 			{
 				vars.PointersFound = true;
-				vars.Log("Found all pointers. Enter a level to grab Frame Counter address.");
+				vars.Log("Found all targets. Enter a level to grab Frame Counter address..");
 
 				var addrPool = new Dictionary<int, Tuple<double, int, int>>();
 				var frameCandidates = new List<int>();
@@ -222,7 +222,7 @@ init
 			}
 
 			scanErrorList.ForEach(vars.Log);
-			vars.Log("Scan failed. Retrying.");
+			vars.Log("Target scan failed. Retrying..");
 			await System.Threading.Tasks.Task.Delay(2000, token);
 		}
 
@@ -288,4 +288,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.2.2 09-Apr-2022
+// v0.2.3 10-Apr-2022
