@@ -1,4 +1,5 @@
 state("LOVE3") {}
+state("LOVE3_Demo") {}
 
 startup
 {
