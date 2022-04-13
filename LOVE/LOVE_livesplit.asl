@@ -217,7 +217,7 @@ init
 							var tuple = Tuple.Create(value, increased, 0);
 							addrPool[address] = tuple;
 
-							if (increased > 30 && !vars.RoomActionList.Contains(current.RoomName) && !frameCandidates.Contains(address))
+							if (increased > 60 && !vars.RoomActionList.Contains(current.RoomName) && !frameCandidates.Contains(address))
 							{
 								frameCandidates.Add(address);
 
@@ -255,12 +255,12 @@ init
 
 					if (offset == 0x2000) offset = 0x0;
 
-					if (frameCandidates.Count >= 4)
+					if (frameCandidates.Count >= 2)
 					{
 						for (int i = 0; i < frameCandidates.Count; i++)
 						{
 							int candidate = frameCandidates[i];
-							if (addrPool[candidate].Item2 < 50) break;
+							if (addrPool[candidate].Item2 < 120) break;
 
 							if (i == frameCandidates.Count - 1)
 							{
@@ -346,4 +346,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.2.4 11-Apr-2022
+// v0.2.5 13-Apr-2022
