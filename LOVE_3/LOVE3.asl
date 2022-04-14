@@ -112,7 +112,7 @@ init
 
 			if ((miscPtr = scanner.Scan(miscTrg)) != IntPtr.Zero)
 			{
-				vars.MiscSearchBase = game.ReadValue<int>(miscPtr);
+				vars.MiscSearchBase = game.ReadValue<int>(miscPtr) - 0x3000;
 				vars.Log("# miscPtr address: 0x" + miscPtr.ToString("X") + ", value: (hex) " + vars.MiscSearchBase.ToString("X"));
 			}
 			else
@@ -136,12 +136,12 @@ init
 					int address = vars.MiscSearchBase + offset;
 					double value = game.ReadValue<double>((IntPtr) address);
 
-					if (addrPool.Count < 512)
+					if (addrPool.Count < 2048)
 					{
 						var tuple = Tuple.Create(value, 0, 0);
 						addrPool.Add(address, tuple);
 					}
-					else if (addrPool.Count == 512)
+					else if (addrPool.Count == 2048)
 					{
 						vars.RunTime.Update(game);
 
@@ -160,7 +160,7 @@ init
 							var tuple = Tuple.Create(value, increased, 0);
 							addrPool[address] = tuple;
 
-							if (increased > 30 && !vars.RoomActionList.Contains(current.RoomName) && !frameCandidates.Contains(address))
+							if (increased > 60 && !vars.RoomActionList.Contains(current.RoomName) && !frameCandidates.Contains(address))
 							{
 								frameCandidates.Add(address);
 
@@ -194,16 +194,32 @@ init
 							var tuple = Tuple.Create(value, 0, 0);
 							addrPool[address] = tuple;
 						}
+
+						if (vars.RoomActionList.Contains(current.RoomName) && frameCandidates.Count > 0)
+						{
+							foreach (int candidate in frameCandidates.ToList())
+							{
+								if (vars.PrintFrameCandidateChanges)
+								{
+									vars.Log("Removed " + candidate.ToString("X") + " " + addrPool[candidate] + ". frameCandidates.Count = " + (frameCandidates.Count - 1));
+								}
+
+								frameCandidates.Remove(candidate);
+
+								var tuple = Tuple.Create(0.0, 0, 0);
+								addrPool[candidate] = tuple;
+							}
+						}
 					}
 
-					if (offset == 0x2000) offset = 0x0;
+					if (offset == 0x8000) offset = 0x0;
 
 					if (frameCandidates.Count >= 2)
 					{
 						for (int i = 0; i < frameCandidates.Count; i++)
 						{
 							int candidate = frameCandidates[i];
-							if (addrPool[candidate].Item2 < 50) break;
+							if (addrPool[candidate].Item2 < 120) break;
 
 							if (i == frameCandidates.Count - 1)
 							{
@@ -288,4 +304,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.2.5 11-Apr-2022
+// v0.3.0 14-Apr-2022
