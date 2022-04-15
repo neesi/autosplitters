@@ -112,8 +112,10 @@ init
 
 			if ((miscPtr = scanner.Scan(miscTrg)) != IntPtr.Zero)
 			{
-				vars.MiscSearchBase = game.ReadValue<int>(miscPtr) - 0x3000;
-				vars.Log("# miscPtr address: 0x" + miscPtr.ToString("X") + ", value: (hex) " + vars.MiscSearchBase.ToString("X"));
+				int miscPtrValue = game.ReadValue<int>(miscPtr);
+				vars.FrameSearchBase = miscPtrValue - 0x3000;
+				vars.Log("# miscPtr address: 0x" + miscPtr.ToString("X") + ", value: (hex) " + miscPtrValue.ToString("X"));
+				vars.Log("# vars.FrameSearchBase: (hex) " + vars.FrameSearchBase.ToString("X"));
 			}
 			else
 			{
@@ -133,7 +135,7 @@ init
 				{
 					offset += 0x10;
 
-					int address = vars.MiscSearchBase + offset;
+					int address = vars.FrameSearchBase + offset;
 					double value = game.ReadValue<double>((IntPtr) address);
 
 					if (addrPool.Count < 2048)
@@ -166,7 +168,7 @@ init
 
 								if (vars.PrintFrameCandidateChanges)
 								{
-									vars.Log("Added " + address.ToString("X") + " " + addrPool[address] + ". frameCandidates.Count = " + frameCandidates.Count);
+									vars.Log("Added " + address.ToString("X") + " " + addrPool[address] + ". frameCandidates.Count: " + frameCandidates.Count);
 								}
 							}
 						}
@@ -185,7 +187,7 @@ init
 							{
 								if (vars.PrintFrameCandidateChanges)
 								{
-									vars.Log("Removed " + address.ToString("X") + " " + addrPool[address] + ". frameCandidates.Count = " + (frameCandidates.Count - 1));
+									vars.Log("Removed " + address.ToString("X") + " " + addrPool[address] + ". frameCandidates.Count: " + (frameCandidates.Count - 1));
 								}
 
 								frameCandidates.Remove(address);
@@ -201,7 +203,7 @@ init
 							{
 								if (vars.PrintFrameCandidateChanges)
 								{
-									vars.Log("Removed " + candidate.ToString("X") + " " + addrPool[candidate] + ". frameCandidates.Count = " + (frameCandidates.Count - 1));
+									vars.Log("Removed " + candidate.ToString("X") + " " + addrPool[candidate] + ". frameCandidates.Count: " + (frameCandidates.Count - 1));
 								}
 
 								frameCandidates.Remove(candidate);
@@ -304,4 +306,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.3.0 14-Apr-2022
+// v0.3.0 16-Apr-2022
