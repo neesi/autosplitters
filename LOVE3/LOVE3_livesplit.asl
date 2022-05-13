@@ -26,7 +26,6 @@ init
 
 	vars.FrameSearch = (Action)(() =>
 	{
-		game.Suspend();
 		IntPtr framePtrValue = game.ReadPointer((IntPtr) vars.FramePtr);
 
 		int step1 = new DeepPointer(framePtrValue + 0x28).Deref<int>(game);
@@ -38,7 +37,7 @@ init
 		long step7 = step6 + (step6 * 2);
 		long step8 = vars.FrameSearchBase.Current + (step7 * 4);
 
-		vars.Address = game.ReadValue<int>((IntPtr) step8);
+		vars.Address = game.ReadPointer((IntPtr) step8);
 	});
 
 	vars.TargetsFound = false;
@@ -65,9 +64,8 @@ init
 
 			vars.FrameSearch = (Action)(() =>
 			{
-				game.Suspend();
 				IntPtr framePtrValue = game.ReadPointer((IntPtr) vars.FramePtr);
-				vars.Address = new DeepPointer(framePtrValue - 0x80 + 0x8C).Deref<int>(game);
+				vars.Address = new DeepPointer(framePtrValue - 0x80 + 0x8C).Deref<IntPtr>(game);
 			});
 		}
 
@@ -164,13 +162,14 @@ init
 		vars.FrameSearchBase.Update(game);
 		vars.FrameSearchMore.Update(game);
 
-		var addrPool = new Dictionary<int, Tuple<double, int, int>>();
+		var addrPool = new Dictionary<IntPtr, Tuple<double, int, int>>();
 		vars.Address = 0;
 
 		while (!token.IsCancellationRequested && !vars.FrameCountFound)
 		{
 			try
 			{
+				game.Suspend();
 				vars.FrameSearch();
 			}
 			catch (Exception ex)
@@ -183,7 +182,7 @@ init
 				game.Resume();
 			}
 
-			if (!vars.RoomActionList.Contains(current.RoomName) && !addrPool.ContainsKey(vars.Address))
+			if (!addrPool.ContainsKey(vars.Address) && !vars.RoomActionList.Contains(current.RoomName))
 			{
 				addrPool.Add(vars.Address, Tuple.Create(0.0, 0, 0));
 			}
@@ -193,9 +192,9 @@ init
 				vars.FrameSearchBase.Update(game);
 				vars.FrameSearchMore.Update(game);
 
-				foreach (int address in addrPool.Keys.ToList())
+				foreach (IntPtr address in addrPool.Keys.ToList())
 				{
-					double value = game.ReadValue<double>((IntPtr) address);
+					double value = game.ReadValue<double>(address);
 					double oldValue = addrPool[address].Item1;
 					int increased = addrPool[address].Item2;
 					int unchanged = addrPool[address].Item3;
@@ -207,13 +206,10 @@ init
 
 						if (increased > 40 && !vars.RoomActionList.Contains(current.RoomName))
 						{
-							IntPtr frameCountAddr = (IntPtr) address;
-							double frameCountValue = game.ReadValue<double>(frameCountAddr);
-							vars.Log("Frame Counter: 0x" + frameCountAddr.ToString("X") + ", value: (double) " + frameCountValue);
-
-							vars.FrameCount = new MemoryWatcher<double>(frameCountAddr);
+							vars.FrameCount = new MemoryWatcher<double>(address);
 
 							vars.FrameCountFound = true;
+							vars.Log("Frame Counter: 0x" + address.ToString("X") + ", value: (double) " + value);
 							vars.Log("Task completed successfully.");
 							break;
 						}
@@ -302,4 +298,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.2.7 13-May-2022
+// v0.2.8 13-May-2022

@@ -186,7 +186,7 @@ init
 		vars.FrameSearchBase.Update(game);
 		vars.FrameSearchMore.Update(game);
 
-		var addrPool = new Dictionary<int, Tuple<double, int, int>>();
+		var addrPool = new Dictionary<IntPtr, Tuple<double, int, int>>();
 		vars.Address = 0;
 
 		while (!token.IsCancellationRequested && !vars.FrameCountFound)
@@ -204,7 +204,7 @@ init
 				long step6 = step5 + (step5 * 2);
 				long step7 = vars.FrameSearchBase.Current + (step6 * 4);
 
-				vars.Address = game.ReadValue<int>((IntPtr) step7);
+				vars.Address = game.ReadPointer((IntPtr) step7);
 			}
 			catch (Exception ex)
 			{
@@ -216,7 +216,7 @@ init
 				game.Resume();
 			}
 
-			if (!vars.RoomActionList.Contains(current.RoomName) && !addrPool.ContainsKey(vars.Address))
+			if (!addrPool.ContainsKey(vars.Address) && !vars.RoomActionList.Contains(current.RoomName))
 			{
 				addrPool.Add(vars.Address, Tuple.Create(0.0, 0, 0));
 			}
@@ -226,9 +226,9 @@ init
 				vars.FrameSearchBase.Update(game);
 				vars.FrameSearchMore.Update(game);
 
-				foreach (int address in addrPool.Keys.ToList())
+				foreach (IntPtr address in addrPool.Keys.ToList())
 				{
-					double value = game.ReadValue<double>((IntPtr) address);
+					double value = game.ReadValue<double>(address);
 					double oldValue = addrPool[address].Item1;
 					int increased = addrPool[address].Item2;
 					int unchanged = addrPool[address].Item3;
@@ -240,13 +240,10 @@ init
 
 						if (increased > 40 && !vars.RoomActionList.Contains(current.RoomName))
 						{
-							IntPtr frameCountAddr = (IntPtr) address;
-							double frameCountValue = game.ReadValue<double>(frameCountAddr);
-							vars.Log("Frame Counter: 0x" + frameCountAddr.ToString("X") + ", value: (double) " + frameCountValue);
-
-							vars.FrameCount = new MemoryWatcher<double>(frameCountAddr);
+							vars.FrameCount = new MemoryWatcher<double>(address);
 
 							vars.FrameCountFound = true;
+							vars.Log("Frame Counter: 0x" + address.ToString("X") + ", value: (double) " + value);
 							vars.Log("Task completed successfully.");
 							break;
 						}
