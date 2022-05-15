@@ -210,11 +210,8 @@ init
 			await System.Threading.Tasks.Task.Delay(2000, token);
 		}
 
-		vars.FrameSearchBase.Update(game);
-
 		var addrPool = new Dictionary<IntPtr, Tuple<double, int, int>>();
 		vars.Address = 0;
-
 		while (!token.IsCancellationRequested && !vars.FrameCountFound)
 		{
 			try
@@ -247,8 +244,6 @@ init
 
 			if (vars.NewFrame)
 			{
-				vars.FrameSearchBase.Update(game);
-
 				foreach (IntPtr address in addrPool.Keys.ToList())
 				{
 					double value = game.ReadValue<double>(address);
@@ -301,6 +296,7 @@ update
 	if (!vars.FrameCountFound)
 	{
 		vars.RunTime.Update(game);
+		vars.FrameSearchBase.Update(game);
 
 		if (vars.RunTime.Current > vars.RunTime.Old)
 		{
@@ -373,4 +369,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.2.7 13-May-2022
+// v0.2.8 15-May-2022
