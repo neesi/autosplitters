@@ -4,53 +4,10 @@ startup
 {
 	vars.Log = (Action<dynamic>)(output => print("   [LOVE]   " + output));
 	vars.PrintRoomNameChanges = false;
-
-	settings.Add("SleepMargin", false, "SleepMargin -- Fix low in-game FPS");
-	settings.SetToolTip("SleepMargin", "Greatest checked value is used. Uncheck all and restart game to set game default.");
-
-		settings.Add("SleepMargin1", false, "1", "SleepMargin");
-		settings.Add("SleepMargin10", false, "10", "SleepMargin");
-		settings.Add("SleepMargin40", false, "40", "SleepMargin");
-		settings.Add("SleepMargin80", false, "80", "SleepMargin");
-		settings.Add("SleepMargin200", false, "200", "SleepMargin");
 }
 
 init
 {
-	vars.SleepMargin = (Action)(() =>
-	{
-		if (settings["SleepMargin"])
-		{
-			byte margin = 0x00;
-
-			if (settings["SleepMargin200"])     margin = 0xC8;
-			else if (settings["SleepMargin80"]) margin = 0x50;
-			else if (settings["SleepMargin40"]) margin = 0x28;
-			else if (settings["SleepMargin10"]) margin = 0x0A;
-			else if (settings["SleepMargin1"])  margin = 0x01;
-
-			if (margin > 0x00 && margin != game.ReadValue<int>((IntPtr) vars.SleepMarginPtr))
-			{
-				byte[] sleepMarginSetting = new byte[] { margin, 0x00, 0x00, 0x00 };
-
-				try
-				{
-					game.Suspend();
-					game.WriteBytes((IntPtr) vars.SleepMarginPtr, sleepMarginSetting);
-				}
-				catch (Exception ex)
-				{
-					game.Resume();
-					vars.Log(ex.ToString());
-				}
-				finally
-				{
-					game.Resume();
-				}
-			}
-		}
-	});
-
 	vars.RoomActionList = new List<string>()
 	{
 		"loading",
@@ -82,14 +39,13 @@ init
 		int gameBaseAddr = (int) game.MainModule.BaseAddress;
 		vars.Log("game.MainModule.BaseAddress: 0x" + gameBaseAddr.ToString("X"));
 
-		var runTimeTrg = new SigScanTarget(4, "CC 53 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 56 57 83 CF FF");
-		var roomNumTrg = new SigScanTarget(1, "A1 ?? ?? ?? ?? 50 A3 ?? ?? ?? ?? C7");
-		var roomNameTrg = new SigScanTarget(10, "7E ?? 8B 2D ?? ?? ?? ?? 8B 3D ?? ?? ?? ?? 2B EF 3B F3 7D");
-		var miscTrg = new SigScanTarget(9, "C3 56 8B 74 24 ?? 57 8B 3D ?? ?? ?? ?? 8B");
-		var frameTrg = new SigScanTarget(20, "8B 33 C7 46 ?? 00 00 00 00 C7 86 ?? 00 00 00 ?? ?? ?? ?? A1");
-		var sleepMarginTrg = new SigScanTarget(11, "8B ?? ?? ?? ?? ?? ?? 83 C4 0C A3 ?? ?? ?? ?? C6");
+		var runTimeTrg = new SigScanTarget(4, "74 37 FF ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? FF");
+		var roomNumTrg = new SigScanTarget(8, "56 E8 ?? ?? ?? ?? 8B 0D ?? ?? ?? ?? 83 C4 08 A1 ?? ?? ?? ?? 5F 5E 5B");
+		var roomNameTrg = new SigScanTarget(10, "7E ?? 8B 2D ?? ?? ?? ?? 8B 3D ?? ?? ?? ?? 2B EF");
+		var miscTrg = new SigScanTarget(10, "8B C8 E8 ?? ?? ?? ?? 8B D8 A1 ?? ?? ?? ?? 56 8B 73 08");
+		var frameTrg = new SigScanTarget(3, "57 50 A3 ?? ?? ?? ?? E8 ?? ?? ?? ?? 8B 45 0C");
 
-		foreach (var target in new SigScanTarget[] { runTimeTrg, roomNumTrg, roomNameTrg, miscTrg, frameTrg, sleepMarginTrg })
+		foreach (var target in new SigScanTarget[] { runTimeTrg, roomNumTrg, roomNameTrg, miscTrg, frameTrg })
 		{
 			target.OnFound = (p, s, ptr) => p.ReadPointer(ptr);
 		}
@@ -105,10 +61,9 @@ init
 			IntPtr roomNamePtr = scanner.Scan(roomNameTrg);
 			IntPtr miscPtr = scanner.Scan(miscTrg);
 			IntPtr framePtr = vars.FramePtr = scanner.Scan(frameTrg);
-			IntPtr sleepMarginPtr = vars.SleepMarginPtr = scanner.Scan(sleepMarginTrg);
 
-			var resultNames = new String[] { "runTimePtr", "roomNumPtr", "roomNamePtr", "miscPtr", "framePtr", "sleepMarginPtr" };
-			var resultValues = new IntPtr[] { runTimePtr, roomNumPtr, roomNamePtr, miscPtr, framePtr, sleepMarginPtr };
+			var resultNames = new String[] { "runTimePtr", "roomNumPtr", "roomNamePtr", "miscPtr", "framePtr" };
+			var resultValues = new IntPtr[] { runTimePtr, roomNumPtr, roomNamePtr, miscPtr, framePtr };
 
 			int index = 0;
 			int found = 0;
@@ -127,7 +82,7 @@ init
 				index++;
 			}
 
-			if (found == 6)
+			if (found == 5)
 			{
 				int runTimeFrames = game.ReadValue<int>(runTimePtr);
 				vars.Log("runTimeFrames: " + runTimeFrames);
@@ -151,16 +106,13 @@ init
 					}
 
 					IntPtr miscPtrValue = vars.MiscPtrValue = game.ReadPointer(miscPtr);
-					int frameSearchBase = new DeepPointer(miscPtrValue + 0x2C, 0x10).Deref<int>(game);
+					int frameSearchBase = new DeepPointer(miscPtrValue + 0x24, 0x10).Deref<int>(game);
 					vars.Log("frameSearchBase: 0x" + frameSearchBase.ToString("X"));
 
 					if (!(frameSearchBase > gameBaseAddr))
 					{
 						scanErrorList.Add("ERROR: invalid frameSearchBase");
 					}
-
-					int sleepMargin = game.ReadValue<int>(sleepMarginPtr);
-					vars.Log("sleepMargin: " + sleepMargin);
 				}
 
 				if (scanErrorList.Count == 0)
@@ -168,8 +120,8 @@ init
 					vars.RunTime = new MemoryWatcher<int>(runTimePtr);
 					vars.RoomNum = new MemoryWatcher<int>(roomNumPtr);
 					vars.RoomNamePtr = new MemoryWatcher<int>(roomNamePtr);
-					vars.FrameSearchBase = new MemoryWatcher<int>(new DeepPointer(vars.MiscPtrValue + 0x2C, 0x10));
-					vars.FrameSearchMore = new MemoryWatcher<int>(new DeepPointer(vars.MiscPtrValue + 0x2C, 0x8));
+					vars.FrameSearchBase = new MemoryWatcher<int>(new DeepPointer(vars.MiscPtrValue + 0x24, 0x10));
+					vars.FrameSearchMore = new MemoryWatcher<int>(new DeepPointer(vars.MiscPtrValue + 0x24, 0x8));
 					vars.FrameCount = new MemoryWatcher<double>(IntPtr.Zero);
 
 					vars.TargetsFound = true;
@@ -185,6 +137,7 @@ init
 
 		var addrPool = new Dictionary<IntPtr, Tuple<double, int, int>>();
 		vars.Address = 0;
+		var candidates = new List<int>();
 		while (!token.IsCancellationRequested && !vars.FrameCountFound)
 		{
 			try
@@ -192,15 +145,16 @@ init
 				game.Suspend();
 				IntPtr framePtrValue = game.ReadPointer((IntPtr) vars.FramePtr);
 
-				int step1 = new DeepPointer(framePtrValue + 0x24, 0x4).Deref<int>(game);
-				long step2 = (step1 & 0xFFFFFFF) - 0x186A0;
-				long step3 = (0x1 - (0x61C8864F * step2)) & 0xFFFFFFFF;
-				long step4 = step3 & 0x7FFFFFFF;
-				long step5 = vars.FrameSearchMore.Current & step4;
-				long step6 = step5 + (step5 * 2);
-				long step7 = vars.FrameSearchBase.Current + (step6 * 4);
+				int step1 = new DeepPointer(framePtrValue - 0x68, 0x0).Deref<int>(game);
+				long step2 = step1 & 0xFFFFFFF;
+				long step3 = (step2 * 0x61C8864FL) & 0xFFFFFFFF;
+				long step4 = (0x1 - step3) & 0xFFFFFFFF;
+				long step5 = step4 & 0x7FFFFFFF;
+				long step6 = vars.FrameSearchMore.Current & step5;
+				long step7 = step6 + (step6 * 2);
+				long step8 = vars.FrameSearchBase.Current + (step7 * 4);
 
-				vars.Address = game.ReadPointer((IntPtr) step7);
+				vars.Address = game.ReadPointer((IntPtr) step8);
 			}
 			catch (Exception ex)
 			{
@@ -233,12 +187,21 @@ init
 
 						if (increased > 40 && !vars.RoomActionList.Contains(current.RoomName))
 						{
-							vars.FrameCount = new MemoryWatcher<double>(address);
+							if (!candidates.Contains((int) address))
+							{
+								candidates.Add((int) address);
+							}
 
-							vars.FrameCountFound = true;
-							vars.Log("Frame Counter: 0x" + address.ToString("X") + ", value: (double) " + value);
-							vars.Log("Task completed successfully.");
-							break;
+							if (increased > 140)
+							{
+								int frameCountAddr = candidates.Max();
+								vars.FrameCount = new MemoryWatcher<double>((IntPtr) frameCountAddr);
+
+								vars.FrameCountFound = true;
+								vars.Log("Frame Counter: 0x" + frameCountAddr.ToString("X") + ", value: (double) " + value);
+								vars.Log("Task completed successfully.");
+								break;
+							}
 						}
 					}
 					else if (value == oldValue)
@@ -250,7 +213,14 @@ init
 					if (!value.ToString().All(Char.IsDigit) || value < oldValue || unchanged > 4)
 					{
 						addrPool[address] = Tuple.Create(value, 0, 0);
+						candidates.Remove((int) address);
 					}
+				}
+
+				if (vars.FrameSearchBase.Changed || vars.FrameSearchMore.Changed || vars.RoomActionList.Contains(current.RoomName))
+				{
+					addrPool.Clear();
+					candidates.Clear();
 				}
 
 				vars.NewFrame = false;
@@ -263,7 +233,6 @@ update
 {
 	if (!vars.TargetsFound) return false;
 
-	vars.SleepMargin();
 	vars.RoomNum.Update(game);
 	vars.RoomNamePtr.Update(game);
 	vars.FrameCount.Update(game);
@@ -287,7 +256,7 @@ update
 
 		if (vars.PrintRoomNameChanges)
 		{
-			vars.Log("old.RoomName: \"" + old.RoomName + "\" -> current.RoomName: \"" + current.RoomName + "\"");
+			vars.Log("current.RoomName: \"" + old.RoomName + "\" -> \"" + current.RoomName + "\"");
 		}
 	}
 }
@@ -328,4 +297,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.3.5 15-May-2022
+// v0.3.5 30-Jul-2022
