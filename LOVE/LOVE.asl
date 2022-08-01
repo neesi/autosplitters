@@ -42,8 +42,8 @@ init
 		var runTimeTrg = new SigScanTarget(4, "74 37 FF ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? FF");
 		var roomNumTrg = new SigScanTarget(8, "56 E8 ?? ?? ?? ?? 8B 0D ?? ?? ?? ?? 83 C4 08 A1 ?? ?? ?? ?? 5F 5E 5B");
 		var roomNameTrg = new SigScanTarget(10, "7E ?? 8B 2D ?? ?? ?? ?? 8B 3D ?? ?? ?? ?? 2B EF");
-		var miscTrg = new SigScanTarget(10, "8B C8 E8 ?? ?? ?? ?? 8B D8 A1 ?? ?? ?? ?? 56 8B 73 08");
-		var frameTrg = new SigScanTarget(3, "57 50 A3 ?? ?? ?? ?? E8 ?? ?? ?? ?? 8B 45 0C");
+		var miscTrg = new SigScanTarget(7, "E8 ?? ?? ?? ?? 8B 0D ?? ?? ?? ?? 8B F0 83 C4 ?? 8B ?? ?? 85");
+		var frameTrg = new SigScanTarget(3, "CC CC A1 ?? ?? ?? ?? 53 8B 58 2C");
 
 		foreach (var target in new SigScanTarget[] { runTimeTrg, roomNumTrg, roomNameTrg, miscTrg, frameTrg })
 		{
@@ -145,16 +145,18 @@ init
 				game.Suspend();
 				IntPtr framePtrValue = game.ReadPointer((IntPtr) vars.FramePtr);
 
-				int step1 = new DeepPointer(framePtrValue - 0x68, 0x0).Deref<int>(game);
-				long step2 = step1 & 0xFFFFFFF;
-				long step3 = (step2 * 0x61C8864FL) & 0xFFFFFFFF;
-				long step4 = (0x1 - step3) & 0xFFFFFFFF;
-				long step5 = step4 & 0x7FFFFFFF;
-				long step6 = vars.FrameSearchMore.Current & step5;
-				long step7 = step6 + (step6 * 2);
-				long step8 = vars.FrameSearchBase.Current + (step7 * 4);
+				int step1 = new DeepPointer(framePtrValue + 0x48).Deref<int>(game);
+				int step2 = new DeepPointer(framePtrValue + 0x28).Deref<int>(game);
+				int step3 = new DeepPointer(step1 + step2 + 0x4).Deref<int>(game);
+				long step4 = step3 & 0xFFFFFFF;
+				long step5 = (step4 * 0x61C8864FL) & 0xFFFFFFFF;
+				long step6 = (0x1 - step5) & 0xFFFFFFFF;
+				long step7 = step6 & 0x7FFFFFFF;
+				long step8 = vars.FrameSearchMore.Current & step7;
+				long step9 = step8 + (step8 * 2);
+				long step10 = vars.FrameSearchBase.Current + (step9 * 4);
 
-				vars.Address = game.ReadPointer((IntPtr) step8);
+				vars.Address = game.ReadPointer((IntPtr) step10);
 			}
 			catch (Exception ex)
 			{
@@ -297,4 +299,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.3.5 30-Jul-2022
+// v0.3.5 01-Aug-2022
