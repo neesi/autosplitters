@@ -147,44 +147,41 @@ init
 
 			if (found == 2)
 			{
-				while (!token.IsCancellationRequested)
+				foreach (var stringPage in game.MemoryPages(true).Reverse())
 				{
-					foreach (var stringPage in game.MemoryPages(true).Reverse())
+					var scanner = new SignatureScanner(game, stringPage.BaseAddress, (int) stringPage.RegionSize);
+
+					IntPtr stringAddress = IntPtr.Zero;
+					IntPtr stringAddressPtr = IntPtr.Zero;
+
+					var playerFrames = new SigScanTarget(0, "70 6C 61 79 65 72 46 72 61 6D 65 73 00 78 78 78 70 6C 61 79 65 72 46 72 61 6D 65 73 00 78 78 78");
+
+					if ((stringAddress = scanner.Scan(playerFrames)) != IntPtr.Zero)
 					{
-						var scanner = new SignatureScanner(game, stringPage.BaseAddress, (int) stringPage.RegionSize);
-
-						IntPtr stringAddress = IntPtr.Zero;
-						IntPtr stringAddressPtr = IntPtr.Zero;
-
-						var playerFrames = new SigScanTarget(0, "70 6C 61 79 65 72 46 72 61 6D 65 73 00 78 78 78 70 6C 61 79 65 72 46 72 61 6D 65 73 00 78 78 78");
-
-						if ((stringAddress = scanner.Scan(playerFrames)) != IntPtr.Zero)
+						foreach (var stringPtrPage in game.MemoryPages(true).Reverse())
 						{
-							foreach (var stringPtrPage in game.MemoryPages(true).Reverse())
+							scanner = new SignatureScanner(game, stringPtrPage.BaseAddress, (int) stringPtrPage.RegionSize);
+							var stringAddressToBytes = new SigScanTarget(0, BitConverter.GetBytes((long) stringAddress));
+
+							if ((stringAddressPtr = scanner.Scan(stringAddressToBytes)) != IntPtr.Zero)
 							{
-								scanner = new SignatureScanner(game, stringPtrPage.BaseAddress, (int) stringPtrPage.RegionSize);
-								var stringAddressToBytes = new SigScanTarget(0, BitConverter.GetBytes((long) stringAddress));
+								long i = vars.PointerPageBase;
+								int frameAddressIdentifier = game.ReadValue<int>(stringAddressPtr - 0x8);
 
-								if ((stringAddressPtr = scanner.Scan(stringAddressToBytes)) != IntPtr.Zero)
+								while (i <= vars.PointerPageEnd)
 								{
-									long i = vars.PointerPageBase;
-									int frameAddressIdentifier = game.ReadValue<int>(stringAddressPtr - 0x8);
-
-									while (i <= vars.PointerPageEnd)
+									if (game.ReadValue<int>((IntPtr) i) == frameAddressIdentifier && game.ReadValue<int>((IntPtr) i - 0x8) >= vars.FramePageBase && game.ReadValue<int>((IntPtr) i - 0x8) <= vars.FramePageEnd)
 									{
-										if (game.ReadValue<int>((IntPtr) i) == frameAddressIdentifier && game.ReadValue<int>((IntPtr) i - 0x8) >= vars.FramePageBase && game.ReadValue<int>((IntPtr) i - 0x8) <= vars.FramePageEnd)
-										{
-											IntPtr frameCountAddress = game.ReadPointer((IntPtr) i - 0x8);
-											double frameCount = game.ReadValue<double>(frameCountAddress);
-											vars.FrameCount = new MemoryWatcher<double>(frameCountAddress);
+										IntPtr frameCountAddress = game.ReadPointer((IntPtr) i - 0x8);
+										double frameCount = game.ReadValue<double>(frameCountAddress);
+										vars.FrameCount = new MemoryWatcher<double>(frameCountAddress);
 
-											vars.Log("Frame Counter: 0x" + frameCountAddress.ToString("X") + ", value: (double) " + frameCount);
-											vars.Log("Task completed successfully.");
-											goto found;
-										}
-
-										i += 0x8;
+										vars.Log("Frame Counter: 0x" + frameCountAddress.ToString("X") + ", value: (double) " + frameCount);
+										vars.Log("Task completed successfully.");
+										goto found;
 									}
+
+									i += 0x8;
 								}
 							}
 						}
@@ -255,4 +252,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.3.0 09-Aug-2022
+// v0.3.1 09-Aug-2022
