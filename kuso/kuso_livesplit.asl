@@ -181,7 +181,7 @@ init
 										goto found;
 									}
 
-									i += 0x8;
+									i += 0x4;
 								}
 							}
 						}
@@ -252,4 +252,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.3.1 09-Aug-2022
+// v0.3.2 10-Aug-2022
