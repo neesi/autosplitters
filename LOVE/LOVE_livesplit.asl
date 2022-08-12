@@ -27,18 +27,20 @@ init
 		"room_keyconfig_config"
 	};
 
-	vars.TargetsFound = false;
+	vars.FrameCountFound = false;
 	vars.CancelSource = new CancellationTokenSource();
 	System.Threading.Tasks.Task.Run(async () =>
 	{
 		vars.Log("Task started. Target scanning..");
 
+		var runTimeTrg = new SigScanTarget(4, "CC CC FF 05 ?? ?? ?? ?? 68 00 01 00 00 6A 00");
 		var roomNumTrg = new SigScanTarget(8, "56 E8 ?? ?? ?? ?? 8B 0D ?? ?? ?? ?? 83 C4 08 A1 ?? ?? ?? ?? 5F 5E 5B");
 		var roomNameTrg = new SigScanTarget(10, "7E ?? 8B 2D ?? ?? ?? ?? 8B 3D ?? ?? ?? ?? 2B EF");
+		var frameVarTrg = new SigScanTarget(0, "70 6C 61 79 65 72 54 69 6D 65 72 00 78 78 78 78 70 6C 61 79 65 72 54 69 6D 65 72 00 78 78 78 78"); // playerTimer
 		var pointerPageTrg = new SigScanTarget(7, "E8 ?? ?? ?? ?? 8B 0D ?? ?? ?? ?? 8B F0 83 C4 ?? 8B ?? ?? 85");
 		var framePageTrg = new SigScanTarget(3, "33 F6 A1 ?? ?? ?? ?? B9 ?? ?? ?? ?? 89 06 A1");
 
-		foreach (var target in new SigScanTarget[] { roomNumTrg, roomNameTrg, pointerPageTrg, framePageTrg })
+		foreach (var target in new SigScanTarget[] { runTimeTrg, roomNumTrg, roomNameTrg, pointerPageTrg, framePageTrg })
 		{
 			target.OnFound = (p, s, ptr) => p.ReadPointer(ptr);
 		}
@@ -48,60 +50,56 @@ init
 		{
 			var scanner = new SignatureScanner(game, game.MainModule.BaseAddress, game.MainModule.ModuleMemorySize);
 
-			IntPtr roomNumPtr = scanner.Scan(roomNumTrg);
-			IntPtr roomNamePtr = scanner.Scan(roomNameTrg);
+			IntPtr runTimePtr = scanner.Scan(runTimeTrg);
+			IntPtr roomNumPtr = vars.RoomNumPtr = scanner.Scan(roomNumTrg);
+			IntPtr roomNamePtr = vars.RoomNamePtr = scanner.Scan(roomNameTrg);
 			IntPtr pointerPagePtr = vars.PointerPagePtr = scanner.Scan(pointerPageTrg);
 			IntPtr framePagePtr = vars.FramePagePtr = scanner.Scan(framePageTrg);
 
-			var resultNames = new String[] { "roomNumPtr", "roomNamePtr", "pointerPagePtr", "framePagePtr" };
-			var resultValues = new IntPtr[] { roomNumPtr, roomNamePtr, pointerPagePtr, framePagePtr };
+			var names = new String[] { "runTimePtr", "roomNumPtr", "roomNamePtr", "pointerPagePtr", "framePagePtr" };
+			var results = new IntPtr[] { runTimePtr, roomNumPtr, roomNamePtr, pointerPagePtr, framePagePtr };
 
 			int index = 0;
 			int found = 0;
-			foreach (IntPtr value in resultValues)
+			foreach (IntPtr result in results)
 			{
-				if (value != IntPtr.Zero)
+				if (result != IntPtr.Zero)
 				{
 					found++;
-					vars.Log((index + 1) + ". " + resultNames[index] + ": 0x" + value.ToString("X"));
+					vars.Log((index + 1) + ". " + names[index] + ": [0x" + result.ToString("X") + "] -> 0x" + game.ReadPointer(result).ToString("X"));
 				}
 				else
 				{
-					vars.Log((index + 1) + ". " + resultNames[index] + ": not found");
+					vars.Log((index + 1) + ". " + names[index] + ": not found");
 				}
 
 				index++;
 			}
 
-			if (found == 4)
+			if (found == 5)
 			{
-				int roomNumPtrValue = game.ReadValue<int>(roomNumPtr);
-				IntPtr roomNamePtrValue = game.ReadPointer(roomNamePtr);
-				IntPtr pointerPagePtrValue = game.ReadPointer(pointerPagePtr);
-				IntPtr framePagePtrValue = game.ReadPointer(framePagePtr);
+				int runTimeFrames = game.ReadValue<int>(runTimePtr);
+				vars.Log("runTimeFrames: " + runTimeFrames);
 
-				vars.Log("roomNumPtr: [0x" + roomNumPtr.ToString("X") + "] -> 0x" + roomNumPtrValue.ToString("X"));
-				vars.Log("roomNamePtr: [0x" + roomNamePtr.ToString("X") + "] -> 0x" + roomNamePtrValue.ToString("X"));
-				vars.Log("pointerPagePtr: [0x" + pointerPagePtr.ToString("X") + "] -> 0x" + pointerPagePtrValue.ToString("X"));
-				vars.Log("framePagePtr: [0x" + framePagePtr.ToString("X") + "] -> 0x" + framePagePtrValue.ToString("X"));
-
-				string roomName = new DeepPointer(roomNamePtrValue + (roomNumPtrValue * 4), 0x0).DerefString(game, 128);
-				current.RoomName = String.IsNullOrEmpty(roomName) ? "" : roomName.ToLower();
-				vars.Log("current.RoomName: \"" + current.RoomName + "\"");
-
-				if (!System.Text.RegularExpressions.Regex.IsMatch(current.RoomName, @"^\w{4,}$"))
+				if (runTimeFrames <= 120)
 				{
-					vars.Log("ERROR: invalid current.RoomName");
+					vars.Log("ERROR: waiting for runTimeFrames to be > 120");
 				}
 				else
 				{
-					vars.RoomNum = new MemoryWatcher<int>(roomNumPtr);
-					vars.RoomNamePtr = new MemoryWatcher<int>(roomNamePtr);
-					vars.FrameCount = new MemoryWatcher<double>(IntPtr.Zero);
+					string roomName = new DeepPointer(game.ReadPointer(roomNamePtr) + (game.ReadValue<int>(roomNumPtr) * 4), 0x0).DerefString(game, 128);
+					current.RoomName = String.IsNullOrEmpty(roomName) ? "" : roomName.ToLower();
+					vars.Log("current.RoomName: \"" + current.RoomName + "\"");
 
-					vars.TargetsFound = true;
-					vars.Log("Found all targets. Scanning for Frame Counter address..");
-					break;
+					if (!System.Text.RegularExpressions.Regex.IsMatch(current.RoomName, @"^\w{4,}$"))
+					{
+						vars.Log("ERROR: invalid current.RoomName");
+					}
+					else
+					{
+						vars.Log("Found all targets. Scanning for Frame Counter address..");
+						break;
+					}
 				}
 			}
 
@@ -111,19 +109,29 @@ init
 
 		while (!token.IsCancellationRequested)
 		{
-			int pointerPage = new DeepPointer((IntPtr) vars.PointerPagePtr, 0x24, 0x10).Deref<int>(game);
+			IntPtr frameVarAddress = IntPtr.Zero;
+
+			int pointerPage = new DeepPointer(vars.PointerPagePtr, 0x24, 0x10).Deref<int>(game);
 			int framePage = game.ReadValue<int>((IntPtr) vars.FramePagePtr);
 
 			int found = 0;
-			foreach (var page in game.MemoryPages(true).Reverse())
+			foreach (var page in game.MemoryPages(false))
 			{
 				int start = (int) page.BaseAddress;
-				int end = (int) page.BaseAddress + (int) page.RegionSize;
+				int end = start + (int) page.RegionSize;
+				int size = (int) page.RegionSize;
+
+				if (frameVarAddress == IntPtr.Zero)
+				{
+					var scanner = new SignatureScanner(game, page.BaseAddress, size);
+
+					if ((frameVarAddress = scanner.Scan(frameVarTrg)) != IntPtr.Zero) found++;
+				}
 
 				if (pointerPage >= start && pointerPage <= end)
 				{
 					vars.PointerPageBase = start;
-					vars.PointerPageEnd = end;
+					vars.PointerPageSize = size;
 					found++;
 				}
 
@@ -135,43 +143,44 @@ init
 				}
 			}
 
-			if (found == 2)
+			if (found == 3)
 			{
-				foreach (var stringPage in game.MemoryPages(true).Reverse())
+				foreach (var page in game.MemoryPages(false))
 				{
-					var scanner = new SignatureScanner(game, stringPage.BaseAddress, (int) stringPage.RegionSize);
+					var scanner = new SignatureScanner(game, page.BaseAddress, (int) page.RegionSize);
 
-					IntPtr stringAddress = IntPtr.Zero;
-					IntPtr stringAddressPtr = IntPtr.Zero;
+					var frameVarAddressToBytes = new SigScanTarget(0, BitConverter.GetBytes((int) frameVarAddress));
+					var frameVarAddressPointers = scanner.ScanAll(frameVarAddressToBytes);
 
-					var playerTimer = new SigScanTarget(0, "70 6C 61 79 65 72 54 69 6D 65 72 00 78 78 78 78 70 6C 61 79 65 72 54 69 6D 65 72 00 78 78 78 78");
-
-					if ((stringAddress = scanner.Scan(playerTimer)) != IntPtr.Zero)
+					if (frameVarAddressPointers.Count() > 0)
 					{
-						foreach (var stringPtrPage in game.MemoryPages(true).Reverse())
+						foreach (IntPtr frameVarAddressPointer in frameVarAddressPointers)
 						{
-							scanner = new SignatureScanner(game, stringPtrPage.BaseAddress, (int) stringPtrPage.RegionSize);
-							var stringAddressToBytes = new SigScanTarget(0, BitConverter.GetBytes((int) stringAddress));
+							scanner = new SignatureScanner(game, (IntPtr) vars.PointerPageBase, vars.PointerPageSize);
 
-							if ((stringAddressPtr = scanner.Scan(stringAddressToBytes)) != IntPtr.Zero)
+							int frameVarIdentifier = game.ReadValue<int>(frameVarAddressPointer - 0x4);
+							var frameVarIdentifierToBytes = new SigScanTarget(0, BitConverter.GetBytes((int) frameVarIdentifier));
+							var frameVarIdentifierPointers = scanner.ScanAll(frameVarIdentifierToBytes);
+
+							if (frameVarIdentifierPointers.Count() > 0)
 							{
-								int i = vars.PointerPageBase;
-								int frameAddressIdentifier = game.ReadValue<int>(stringAddressPtr - 0x4);
-
-								while (i <= vars.PointerPageEnd)
+								foreach (IntPtr frameVarIdentifierPointer in frameVarIdentifierPointers)
 								{
-									if (game.ReadValue<int>((IntPtr) i) == frameAddressIdentifier && game.ReadValue<int>((IntPtr) i - 0x4) >= vars.FramePageBase && game.ReadValue<int>((IntPtr) i - 0x4) <= vars.FramePageEnd)
+									int frameCountAddress = game.ReadValue<int>(frameVarIdentifierPointer - 0x4);
+									double frameCount = game.ReadValue<double>((IntPtr) frameCountAddress);
+
+									if (frameCountAddress >= vars.FramePageBase && frameCountAddress <= vars.FramePageEnd && frameCount.ToString().All(Char.IsDigit))
 									{
-										IntPtr frameCountAddress = game.ReadPointer((IntPtr) i - 0x4);
-										double frameCount = game.ReadValue<double>(frameCountAddress);
-										vars.FrameCount = new MemoryWatcher<double>(frameCountAddress);
+										vars.RoomNum = new MemoryWatcher<int>(vars.RoomNumPtr);
+										vars.RoomNamePtr = new MemoryWatcher<int>(vars.RoomNamePtr);
+										vars.FrameCount = new MemoryWatcher<double>((IntPtr) frameCountAddress);
 
 										vars.Log("Frame Counter: 0x" + frameCountAddress.ToString("X") + ", value: (double) " + frameCount);
 										vars.Log("Task completed successfully.");
+										vars.FrameCountFound = true;
+
 										goto found;
 									}
-
-									i += 0x4;
 								}
 							}
 						}
@@ -188,7 +197,7 @@ init
 
 update
 {
-	if (!vars.TargetsFound) return false;
+	if (!vars.FrameCountFound) return false;
 
 	vars.RoomNum.Update(game);
 	vars.RoomNamePtr.Update(game);
@@ -242,4 +251,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.3.3 10-Aug-2022
+// v0.3.4 12-Aug-2022
