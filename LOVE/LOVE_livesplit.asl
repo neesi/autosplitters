@@ -118,8 +118,8 @@ init
 			foreach (var page in game.MemoryPages(false))
 			{
 				int start = (int) page.BaseAddress;
-				int end = start + (int) page.RegionSize;
 				int size = (int) page.RegionSize;
+				int end = start + size;
 
 				if (frameVarAddress == IntPtr.Zero)
 				{
@@ -158,15 +158,15 @@ init
 						{
 							scanner = new SignatureScanner(game, (IntPtr) vars.PointerPageBase, vars.PointerPageSize);
 
-							int frameVarIdentifier = game.ReadValue<int>(frameVarAddressPointer - 0x4);
-							var frameVarIdentifierToBytes = new SigScanTarget(0, BitConverter.GetBytes((int) frameVarIdentifier));
-							var frameVarIdentifierPointers = scanner.ScanAll(frameVarIdentifierToBytes);
+							int frameIdentifier = game.ReadValue<int>(frameVarAddressPointer - 0x4);
+							var frameIdentifierTrg = new SigScanTarget(0, BitConverter.GetBytes(frameIdentifier));
+							var frameIdentifierPointers = scanner.ScanAll(frameIdentifierTrg);
 
-							if (frameVarIdentifierPointers.Count() > 0)
+							if (frameIdentifierPointers.Count() > 0)
 							{
-								foreach (IntPtr frameVarIdentifierPointer in frameVarIdentifierPointers)
+								foreach (IntPtr frameIdentifierPointer in frameIdentifierPointers)
 								{
-									int frameCountAddress = game.ReadValue<int>(frameVarIdentifierPointer - 0x4);
+									int frameCountAddress = game.ReadValue<int>(frameIdentifierPointer - 0x4);
 									double frameCount = game.ReadValue<double>((IntPtr) frameCountAddress);
 
 									if (frameCountAddress >= vars.FramePageBase && frameCountAddress <= vars.FramePageEnd && frameCount.ToString().All(Char.IsDigit))
@@ -251,4 +251,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.3.4 12-Aug-2022
+// v0.3.5 15-Aug-2022

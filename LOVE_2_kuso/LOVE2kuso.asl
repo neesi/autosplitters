@@ -128,8 +128,8 @@ init
 			foreach (var page in game.MemoryPages(false))
 			{
 				long start = (long) page.BaseAddress;
-				long end = start + (int) page.RegionSize;
 				int size = (int) page.RegionSize;
+				long end = start + size;
 
 				if (frameVarAddress == IntPtr.Zero)
 				{
@@ -159,8 +159,10 @@ init
 				{
 					var scanner = new SignatureScanner(game, page.BaseAddress, (int) page.RegionSize);
 
-					var frameVarAddressToBytes = new SigScanTarget(0, BitConverter.GetBytes((long) frameVarAddress));
-					var frameVarAddressPointers = scanner.ScanAll(frameVarAddressToBytes);
+					var frameVarAddressToBytes = BitConverter.GetBytes((int) frameVarAddress);
+					var frameVarBytesToString = BitConverter.ToString(frameVarAddressToBytes).Replace("-", " ");
+					var frameVarAddressTrg = new SigScanTarget(0, "00 00 00 00", frameVarBytesToString, "00 00 00 00");
+					var frameVarAddressPointers = scanner.ScanAll(frameVarAddressTrg);
 
 					if (frameVarAddressPointers.Count() > 0)
 					{
@@ -168,15 +170,17 @@ init
 						{
 							scanner = new SignatureScanner(game, (IntPtr) vars.PointerPageBase, vars.PointerPageSize);
 
-							int frameVarIdentifier = game.ReadValue<int>(frameVarAddressPointer - 0x8);
-							var frameVarIdentifierToBytes = new SigScanTarget(0, BitConverter.GetBytes((int) frameVarIdentifier));
-							var frameVarIdentifierPointers = scanner.ScanAll(frameVarIdentifierToBytes);
+							int frameIdentifier = game.ReadValue<int>(frameVarAddressPointer - 0x4);
+							var frameIdentifierToBytes = BitConverter.GetBytes(frameIdentifier);
+							var frameBytesToString = BitConverter.ToString(frameIdentifierToBytes).Replace("-", " ");
+							var frameIdentifierTrg = new SigScanTarget(0, "00 00 00 00", frameBytesToString);
+							var frameIdentifierPointers = scanner.ScanAll(frameIdentifierTrg);
 
-							if (frameVarIdentifierPointers.Count() > 0)
+							if (frameIdentifierPointers.Count() > 0)
 							{
-								foreach (IntPtr frameVarIdentifierPointer in frameVarIdentifierPointers)
+								foreach (IntPtr frameIdentifierPointer in frameIdentifierPointers)
 								{
-									int frameCountAddress = game.ReadValue<int>(frameVarIdentifierPointer - 0x8);
+									int frameCountAddress = game.ReadValue<int>(frameIdentifierPointer - 0x4);
 									double frameCount = game.ReadValue<double>((IntPtr) frameCountAddress);
 
 									if (frameCountAddress >= vars.FramePageBase && frameCountAddress <= vars.FramePageEnd && frameCount.ToString().All(Char.IsDigit))
@@ -261,4 +265,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.4.0 12-Aug-2022
+// v0.4.0 15-Aug-2022
