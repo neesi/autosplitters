@@ -37,6 +37,12 @@ init
 		"room_loadgame"
 	};
 
+	vars.RoomName = (Action)(() =>
+	{
+		string roomName = new DeepPointer(game.ReadPointer((IntPtr) vars.RoomNamePtr) + (game.ReadValue<int>((IntPtr) vars.RoomNumPtr) * 8), 0x0).DerefString(game, 128);
+		current.RoomName = String.IsNullOrEmpty(roomName) ? "" : roomName.ToLower();
+	});
+
 	vars.FrameCountFound = false;
 	vars.CancelSource = new CancellationTokenSource();
 	System.Threading.Tasks.Task.Run(async () =>
@@ -97,8 +103,7 @@ init
 				}
 				else
 				{
-					string roomName = new DeepPointer(game.ReadPointer(roomNamePtr) + (game.ReadValue<int>(roomNumPtr) * 8), 0x0).DerefString(game, 128);
-					current.RoomName = String.IsNullOrEmpty(roomName) ? "" : roomName.ToLower();
+					vars.RoomName();
 					vars.Log("current.RoomName: \"" + current.RoomName + "\"");
 
 					if (!System.Text.RegularExpressions.Regex.IsMatch(current.RoomName, @"^\w{4,}$"))
@@ -159,8 +164,8 @@ init
 				{
 					var scanner = new SignatureScanner(game, page.BaseAddress, (int) page.RegionSize);
 
-					var frameVarAddressToBytes = BitConverter.GetBytes((int) frameVarAddress);
-					var frameVarBytesToString = BitConverter.ToString(frameVarAddressToBytes).Replace("-", " ");
+					byte[] frameVarAddressToBytes = BitConverter.GetBytes((int) frameVarAddress);
+					string frameVarBytesToString = BitConverter.ToString(frameVarAddressToBytes).Replace("-", " ");
 					var frameVarAddressTrg = new SigScanTarget(0, "00 00 00 00", frameVarBytesToString, "00 00 00 00");
 					var frameVarAddressPointers = scanner.ScanAll(frameVarAddressTrg);
 
@@ -171,8 +176,8 @@ init
 							scanner = new SignatureScanner(game, (IntPtr) vars.PointerPageBase, vars.PointerPageSize);
 
 							int frameIdentifier = game.ReadValue<int>(frameVarAddressPointer - 0x4);
-							var frameIdentifierToBytes = BitConverter.GetBytes(frameIdentifier);
-							var frameBytesToString = BitConverter.ToString(frameIdentifierToBytes).Replace("-", " ");
+							byte[] frameIdentifierToBytes = BitConverter.GetBytes(frameIdentifier);
+							string frameBytesToString = BitConverter.ToString(frameIdentifierToBytes).Replace("-", " ");
 							var frameIdentifierTrg = new SigScanTarget(0, "00 00 00 00", frameBytesToString);
 							var frameIdentifierPointers = scanner.ScanAll(frameIdentifierTrg);
 
@@ -185,8 +190,9 @@ init
 
 									if (frameCountAddress >= vars.FramePageBase && frameCountAddress <= vars.FramePageEnd && frameCount.ToString().All(Char.IsDigit))
 									{
+										vars.RoomName();
+
 										vars.RoomNum = new MemoryWatcher<int>(vars.RoomNumPtr);
-										vars.RoomNamePtr = new MemoryWatcher<int>(vars.RoomNamePtr);
 										vars.FrameCount = new MemoryWatcher<double>((IntPtr) frameCountAddress);
 
 										vars.Log("Frame Counter: 0x" + frameCountAddress.ToString("X") + ", value: (double) " + frameCount);
@@ -214,13 +220,11 @@ update
 	if (!vars.FrameCountFound) return false;
 
 	vars.RoomNum.Update(game);
-	vars.RoomNamePtr.Update(game);
 	vars.FrameCount.Update(game);
 
 	if (vars.RoomNum.Changed)
 	{
-		string roomName = new DeepPointer((IntPtr) vars.RoomNamePtr.Current + (vars.RoomNum.Current * 8), 0x0).DerefString(game, 128);
-		current.RoomName = String.IsNullOrEmpty(roomName) ? "" : roomName.ToLower();
+		vars.RoomName();
 
 		if (vars.PrintRoomNameChanges)
 		{
@@ -265,4 +269,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.4.0 15-Aug-2022
+// v0.4.0 16-Aug-2022
