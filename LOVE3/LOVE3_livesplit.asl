@@ -1,13 +1,69 @@
 state("LOVE3") {}
+state("LOVE3_Demo") {}
 
 startup
 {
-	vars.Log = (Action<dynamic>)(output => print("   [LOVE 3]   " + output));
-	vars.PrintRoomNameChanges = false;
+	vars.Log = (Action<object>)(output => print("   [LOVE 3 " + vars.Version + "]   " + output));
 }
 
 init
 {
+	vars.TaskSuccessful = false;
+
+	var roomNumTrg = new SigScanTarget(7, "CC CC CC 8B D1 8B 0D ?? ?? ?? ?? E9 ?? ?? ?? ?? CC");
+	var roomBaseTrg = new SigScanTarget(16, "FF C8 48 63 D0 48 63 D9 48 3B D3 7C 18 48 8B 0D");
+	var framePageTrg = new SigScanTarget(4, "C3 48 8B 15 ?? ?? ?? ?? 48 85 D2 0F 85");
+	var frameVarTrg = new SigScanTarget(0, "70 6C 61 79 65 72 74 69 6D 65 00 78 78 78 78 78 70 6C 61 79 65 72 74 69 6D 65 00 78 78 78 78 78"); // playertime
+
+	if (game.MainModule.ModuleName.ToLower() == "love3_demo.exe" && !game.Is64Bit())
+	{
+		vars.Version = "Demo";
+		vars.Offset = "";
+		vars.Bytes = 4;
+
+		roomNumTrg = new SigScanTarget(1, "A1 ?? ?? ?? ?? 50 A3 ?? ?? ?? ?? C7");
+		roomBaseTrg = new SigScanTarget(10, "7E ?? 8B 2D ?? ?? ?? ?? 8B 3D ?? ?? ?? ?? 2B EF 3B F3 7D");
+		framePageTrg = new SigScanTarget(9, "FF 05 ?? ?? ?? ?? 8B 06 A3 ?? ?? ?? ?? 8B 3F");
+
+		foreach (var target in new SigScanTarget[] { roomNumTrg, roomBaseTrg, framePageTrg })
+		{
+			target.OnFound = (p, s, ptr) => p.ReadPointer(ptr);
+		}
+	}
+	else if (game.MainModule.ModuleName.ToLower() == "love3.exe" && game.Is64Bit())
+	{
+		vars.Version = "Full";
+		vars.Offset = "00 00 00 00";
+		vars.Bytes = 8;
+
+		foreach (var target in new SigScanTarget[] { roomNumTrg, roomBaseTrg, framePageTrg })
+		{
+			target.OnFound = (p, s, ptr) => ptr + 0x4 + p.ReadValue<int>(ptr);
+		}
+	}
+	else
+	{
+		vars.Version = "Unknown";
+		vars.Log("Only 32-bit demo and 64-bit full game versions are supported. Stopping.");
+		goto skip;
+	}
+
+	vars.RoomName = (Action)(() =>
+	{
+		try
+		{
+			string name = new DeepPointer(game.ReadPointer((IntPtr) vars.RoomBasePtr) + (game.ReadValue<int>((IntPtr) vars.RoomNumPtr) * vars.Bytes), 0x0).DerefString(game, 128);
+
+			if (System.Text.RegularExpressions.Regex.IsMatch(name, @"^\w{4,}$"))
+			{
+				current.RoomName = name.ToLower();
+			}
+		}
+		catch
+		{
+		}
+	});
+
 	vars.RoomActionList = new List<string>()
 	{
 		"room_startup",
@@ -23,27 +79,10 @@ init
 		"room_achievements"
 	};
 
-	vars.RoomName = (Action)(() =>
-	{
-		string roomName = new DeepPointer(game.ReadPointer((IntPtr) vars.RoomNamePtr) + (game.ReadValue<int>((IntPtr) vars.RoomNumPtr) * 8), 0x0).DerefString(game, 128);
-		current.RoomName = String.IsNullOrEmpty(roomName) ? "" : roomName.ToLower();
-	});
-
-	vars.FrameCountFound = false;
 	vars.CancelSource = new CancellationTokenSource();
 	System.Threading.Tasks.Task.Run(async () =>
 	{
 		vars.Log("Task started. Target scanning..");
-
-		var roomNumTrg = new SigScanTarget(7, "CC CC CC 8B D1 8B 0D ?? ?? ?? ?? E9 ?? ?? ?? ?? CC");
-		var roomNameTrg = new SigScanTarget(16, "FF C8 48 63 D0 48 63 D9 48 3B D3 7C 18 48 8B 0D");
-		var frameVarTrg = new SigScanTarget(0, "70 6C 61 79 65 72 74 69 6D 65 00 78 78 78 78 78 70 6C 61 79 65 72 74 69 6D 65 00 78 78 78 78 78"); // playertime
-		var framePageTrg = new SigScanTarget(4, "C3 48 8B 15 ?? ?? ?? ?? 48 85 D2 0F 85");
-
-		foreach (var target in new SigScanTarget[] { roomNumTrg, roomNameTrg, framePageTrg })
-		{
-			target.OnFound = (p, s, ptr) => ptr + 0x4 + p.ReadValue<int>(ptr);
-		}
 
 		var token = vars.CancelSource.Token;
 		while (!token.IsCancellationRequested)
@@ -51,11 +90,11 @@ init
 			var scanner = new SignatureScanner(game, game.MainModule.BaseAddress, game.MainModule.ModuleMemorySize);
 
 			IntPtr roomNumPtr = vars.RoomNumPtr = scanner.Scan(roomNumTrg);
-			IntPtr roomNamePtr = vars.RoomNamePtr = scanner.Scan(roomNameTrg);
+			IntPtr roomBasePtr = vars.RoomBasePtr = scanner.Scan(roomBaseTrg);
 			IntPtr framePagePtr = vars.FramePagePtr = scanner.Scan(framePageTrg);
 
-			var names = new String[] { "roomNumPtr", "roomNamePtr", "framePagePtr" };
-			var results = new IntPtr[] { roomNumPtr, roomNamePtr, framePagePtr };
+			var names = new String[] { "roomNumPtr", "roomBasePtr", "framePagePtr" };
+			var results = new IntPtr[] { roomNumPtr, roomBasePtr, framePagePtr };
 
 			int index = 0;
 			int found = 0;
@@ -76,16 +115,17 @@ init
 
 			if (found == 3)
 			{
+				current.RoomName = "";
 				vars.RoomName();
 				vars.Log("current.RoomName: \"" + current.RoomName + "\"");
 
-				if (!System.Text.RegularExpressions.Regex.IsMatch(current.RoomName, @"^\w{4,}$"))
+				if (current.RoomName == "")
 				{
 					vars.Log("ERROR: invalid current.RoomName");
 				}
 				else
 				{
-					vars.Log("Found all targets. Scanning for Frame Counter address..");
+					vars.Log("Scanning for Frame Counter address..");
 					break;
 				}
 			}
@@ -110,7 +150,6 @@ init
 				if (frameVarAddress == IntPtr.Zero)
 				{
 					var scanner = new SignatureScanner(game, page.BaseAddress, size);
-
 					frameVarAddress = scanner.Scan(frameVarTrg);
 				}
 
@@ -126,31 +165,29 @@ init
 				foreach (var page in game.MemoryPages(false))
 				{
 					var scanner = new SignatureScanner(game, page.BaseAddress, (int) page.RegionSize);
+					var toBytes = BitConverter.GetBytes((int) frameVarAddress);
+					var toString = BitConverter.ToString(toBytes).Replace("-", " ");
+					var target = new SigScanTarget(0, vars.Offset, toString, vars.Offset);
+					var pointers = scanner.ScanAll(target);
 
-					byte[] frameVarAddressToBytes = BitConverter.GetBytes((int) frameVarAddress);
-					string addressBytesToString = BitConverter.ToString(frameVarAddressToBytes).Replace("-", " ");
-					var frameVarAddressTrg = new SigScanTarget(0, "00 00 00 00", addressBytesToString, "00 00 00 00");
-					var frameVarAddressPointers = scanner.ScanAll(frameVarAddressTrg);
-
-					foreach (IntPtr frameVarAddressPointer in frameVarAddressPointers)
+					foreach (IntPtr pointer in pointers)
 					{
-						int frameIdentifier = game.ReadValue<int>(frameVarAddressPointer - 0x4);
+						int frameIdentifier = game.ReadValue<int>(pointer - 0x4);
 
 						if (frameIdentifier <= 0x186A0) continue;
 
-						byte[] frameIdentifierToBytes = BitConverter.GetBytes(frameIdentifier);
-						string identifierBytesToString = BitConverter.ToString(frameIdentifierToBytes).Replace("-", " ");
-						var frameIdentifierTrg = new SigScanTarget(0, "00 00 00 00", identifierBytesToString);
+						var toBytes_ = BitConverter.GetBytes(frameIdentifier);
+						var toString_ = BitConverter.ToString(toBytes_).Replace("-", " ");
+						var target_ = new SigScanTarget(0, vars.Offset, toString_);
 
 						foreach (var page_ in game.MemoryPages(false))
 						{
-							scanner = new SignatureScanner(game, page_.BaseAddress, (int) page_.RegionSize);
+							var scanner_ = new SignatureScanner(game, page_.BaseAddress, (int) page_.RegionSize);
+							var pointers_ = scanner_.ScanAll(target_);
 
-							var frameIdentifierPointers = scanner.ScanAll(frameIdentifierTrg);
-
-							foreach (IntPtr frameIdentifierPointer in frameIdentifierPointers)
+							foreach (IntPtr pointer_ in pointers_)
 							{
-								int frameCountAddress = game.ReadValue<int>(frameIdentifierPointer - 0x4);
+								int frameCountAddress = game.ReadValue<int>(pointer_ - 0x4);
 								double frameCount = game.ReadValue<double>((IntPtr) frameCountAddress);
 
 								if (frameCountAddress >= vars.FramePageBase && frameCountAddress <= vars.FramePageEnd && frameCount.ToString().All(Char.IsDigit))
@@ -162,9 +199,9 @@ init
 
 									vars.Log("Frame Counter: 0x" + frameCountAddress.ToString("X") + ", value: (double) " + frameCount);
 									vars.Log("Task completed successfully.");
-									vars.FrameCountFound = true;
+									vars.TaskSuccessful = true;
 
-									goto found;
+									goto end;
 								}
 							}
 						}
@@ -175,13 +212,15 @@ init
 			await System.Threading.Tasks.Task.Delay(1000, token);
 		}
 
-		found:;
+		end:;
 	});
+
+	skip:;
 }
 
 update
 {
-	if (!vars.FrameCountFound) return false;
+	if (!vars.TaskSuccessful) return false;
 
 	vars.RoomNum.Update(game);
 	vars.FrameCount.Update(game);
@@ -190,7 +229,7 @@ update
 	{
 		vars.RoomName();
 
-		if (vars.PrintRoomNameChanges)
+		if (current.RoomName != old.RoomName)
 		{
 			vars.Log("current.RoomName: \"" + old.RoomName + "\" -> \"" + current.RoomName + "\"");
 		}
@@ -233,4 +272,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.3.4 18-Aug-2022
+// v0.3.4 27-Aug-2022
