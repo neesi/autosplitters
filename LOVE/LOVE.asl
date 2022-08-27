@@ -265,4 +265,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.3.7 27-Aug-2022
+// v0.4.0 27-Aug-2022
