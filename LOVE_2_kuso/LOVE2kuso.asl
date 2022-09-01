@@ -329,7 +329,7 @@ update
 
 start
 {
-	return !vars.RoomNum.Changed && !vars.RoomActionList.Contains(current.RoomName) && vars.FrameCount.Current == vars.FrameCount.Old + 1;
+	return !vars.RoomActionList.Contains(current.RoomName) && vars.FrameCount.Current == vars.FrameCount.Old + 1;
 }
 
 split
@@ -364,4 +364,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.4.0 27-Aug-2022
+// v0.4.1 01-Sep-2022

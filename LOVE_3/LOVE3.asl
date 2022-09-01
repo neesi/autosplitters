@@ -71,8 +71,6 @@ init
 		"room_controlsdisplay",
 		"room_mainmenu",
 		"room_levelselect",
-		"room_leaderboards",
-		"room_demo_leaderboards",
 		"room_credits",
 		"room_keyboardmapping",
 		"room_tutorial",
@@ -238,18 +236,18 @@ update
 
 start
 {
-	return !vars.RoomNum.Changed && !vars.RoomActionList.Contains(current.RoomName) && vars.FrameCount.Current == vars.FrameCount.Old + 1;
+	return !vars.RoomActionList.Contains(current.RoomName) && vars.FrameCount.Current == vars.FrameCount.Old + 1;
 }
 
 split
 {
-	return vars.RoomNum.Changed && !current.RoomName.Contains("leaderboard") && vars.FrameCount.Current > 90;
+	return vars.RoomNum.Changed && !current.RoomName.Contains("leaderboard") && !old.RoomName.Contains("leaderboard") && vars.FrameCount.Current > 90;
 }
 
 reset
 {
 	return vars.FrameCount.Current < vars.FrameCount.Old ||
-	       vars.RoomActionList.Contains(current.RoomName) && !current.RoomName.Contains("leaderboard");
+	       vars.RoomActionList.Contains(current.RoomName);
 }
 
 gameTime
@@ -272,4 +270,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.4.0 27-Aug-2022
+// v0.4.1 01-Sep-2022
