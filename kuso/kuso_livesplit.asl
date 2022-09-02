@@ -3,6 +3,17 @@ state("kuso") {}
 startup
 {
 	vars.Log = (Action<object>)(output => print("   [LOVE 2: kuso " + vars.Version + "]   " + output));
+
+	if (timer.CurrentTimingMethod == TimingMethod.RealTime)
+	{
+		var timingMessage = MessageBox.Show("Change timing method to Game Time? This keeps LiveSplit in sync with the game's frame counter.", "LiveSplit | LOVE 2: kuso",
+		                                    MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1, (MessageBoxOptions)0x40000);
+
+		if (timingMessage == DialogResult.Yes)
+		{
+			timer.CurrentTimingMethod = TimingMethod.GameTime;
+		}
+	}
 }
 
 init
@@ -364,4 +375,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.4.1 01-Sep-2022
+// v0.4.2 02-Sep-2022
