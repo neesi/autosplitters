@@ -6,8 +6,13 @@ startup
 
 	if (timer.CurrentTimingMethod == TimingMethod.RealTime)
 	{
-		var timingMessage = MessageBox.Show("Change timing method to Game Time? This keeps LiveSplit in sync with the game's frame counter.", "LiveSplit | LOVE",
-		                                    MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1, (MessageBoxOptions)0x40000);
+		var timingMessage = MessageBox.Show(
+			"Change timing method to Game Time? This keeps LiveSplit in sync with the game's frame counter.",
+			"LiveSplit | LOVE",
+			MessageBoxButtons.YesNo,
+			MessageBoxIcon.Question,
+			MessageBoxDefaultButton.Button1,
+			(MessageBoxOptions)0x40000);
 
 		if (timingMessage == DialogResult.Yes)
 		{
@@ -28,7 +33,7 @@ init
 	if (game.Is64Bit())
 	{
 		vars.Offset = "00 00 00 00";
-		vars.Bytes = 8;
+		vars.Bytes = 0x8;
 
 		roomNumTrg = new SigScanTarget(7, "CC CC CC 8B D1 8B 0D ?? ?? ?? ?? E9 ?? ?? ?? ?? CC");
 		roomBaseTrg = new SigScanTarget(16, "FF C8 48 63 D0 48 63 D9 48 3B D3 7C 18 48 8B 0D");
@@ -42,7 +47,7 @@ init
 	else
 	{
 		vars.Offset = "";
-		vars.Bytes = 4;
+		vars.Bytes = 0x4;
 
 		foreach (var target in new SigScanTarget[] { roomNumTrg, roomBaseTrg, framePageTrg })
 		{
@@ -54,7 +59,7 @@ init
 	{
 		try
 		{
-			string name = new DeepPointer(game.ReadPointer((IntPtr) vars.RoomBasePtr) + (game.ReadValue<int>((IntPtr) vars.RoomNumPtr) * vars.Bytes), 0x0).DerefString(game, 128);
+			string name = new DeepPointer(game.ReadPointer((IntPtr)vars.RoomBasePtr) + (game.ReadValue<int>((IntPtr)vars.RoomNumPtr) * vars.Bytes), 0x0).DerefString(game, 128);
 
 			if (System.Text.RegularExpressions.Regex.IsMatch(name, @"^\w{4,}$"))
 			{
@@ -144,13 +149,12 @@ init
 		{
 			IntPtr frameVarAddress = IntPtr.Zero;
 			vars.FramePageBase = 0;
-
-			int framePage = game.ReadValue<int>((IntPtr) vars.FramePagePtr);
+			int framePage = game.ReadValue<int>((IntPtr)vars.FramePagePtr);
 
 			foreach (var page in game.MemoryPages(false))
 			{
-				long start = (long) page.BaseAddress;
-				int size = (int) page.RegionSize;
+				long start = (long)page.BaseAddress;
+				int size = (int)page.RegionSize;
 				long end = start + size;
 
 				if (frameVarAddress == IntPtr.Zero)
@@ -170,8 +174,8 @@ init
 			{
 				foreach (var page in game.MemoryPages(false))
 				{
-					var scanner = new SignatureScanner(game, page.BaseAddress, (int) page.RegionSize);
-					var toBytes = BitConverter.GetBytes((int) frameVarAddress);
+					var scanner = new SignatureScanner(game, page.BaseAddress, (int)page.RegionSize);
+					var toBytes = BitConverter.GetBytes((int)frameVarAddress);
 					var toString = BitConverter.ToString(toBytes).Replace("-", " ");
 					var target = new SigScanTarget(0, vars.Offset, toString, vars.Offset);
 					var pointers = scanner.ScanAll(target);
@@ -188,22 +192,22 @@ init
 
 						foreach (var page_ in game.MemoryPages(false))
 						{
-							var scanner_ = new SignatureScanner(game, page_.BaseAddress, (int) page_.RegionSize);
+							var scanner_ = new SignatureScanner(game, page_.BaseAddress, (int)page_.RegionSize);
 							var pointers_ = scanner_.ScanAll(target_);
 
 							foreach (IntPtr pointer_ in pointers_)
 							{
 								int frameCountAddress = game.ReadValue<int>(pointer_ - 0x4);
-								double frameCount = game.ReadValue<double>((IntPtr) frameCountAddress);
+								double frameCount = game.ReadValue<double>((IntPtr)frameCountAddress);
 
 								if (frameCountAddress >= vars.FramePageBase && frameCountAddress <= vars.FramePageEnd && frameCount.ToString().All(Char.IsDigit))
 								{
 									vars.RoomName();
 
 									vars.RoomNum = new MemoryWatcher<int>(vars.RoomNumPtr);
-									vars.FrameCount = new MemoryWatcher<double>((IntPtr) frameCountAddress);
+									vars.FrameCount = new MemoryWatcher<double>((IntPtr)frameCountAddress);
 
-									vars.Log("Frame Counter: 0x" + frameCountAddress.ToString("X") + ", value: (double) " + frameCount);
+									vars.Log("frameCountAddress: [0x" + frameCountAddress.ToString("X") + "] -> " + frameCount);
 									vars.Log("Task completed successfully.");
 									vars.TaskSuccessful = true;
 
@@ -276,4 +280,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.4.2 02-Sep-2022
+// v0.4.3 03-Sep-2022

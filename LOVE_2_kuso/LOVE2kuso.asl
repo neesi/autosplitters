@@ -6,8 +6,13 @@ startup
 
 	if (timer.CurrentTimingMethod == TimingMethod.RealTime)
 	{
-		var timingMessage = MessageBox.Show("Change timing method to Game Time? This keeps LiveSplit in sync with the game's frame counter.", "LiveSplit | LOVE 2: kuso",
-		                                    MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1, (MessageBoxOptions)0x40000);
+		var timingMessage = MessageBox.Show(
+			"Change timing method to Game Time? This keeps LiveSplit in sync with the game's frame counter.",
+			"LiveSplit | LOVE 2: kuso",
+			MessageBoxButtons.YesNo,
+			MessageBoxIcon.Question,
+			MessageBoxDefaultButton.Button1,
+			(MessageBoxOptions)0x40000);
 
 		if (timingMessage == DialogResult.Yes)
 		{
@@ -34,20 +39,15 @@ init
 	if (game.MainModule.ModuleMemorySize == 6680576 && !game.Is64Bit())
 	{
 		vars.Version = "Demo";
+		vars.Bytes = 0x4;
 
-		vars.Name = (Func <string>)(() =>
-		{
-			return new DeepPointer(game.ReadPointer((IntPtr) 0x7C9668) + (game.ReadValue<int>((IntPtr) 0x9CB860) * 4), 0x0).DerefString(game, 128);
-		});
+		vars.RoomBasePtr = 0x7C9668;
+		vars.RoomNumPtr = 0x9CB860;
 	}
 	else if (game.Is64Bit())
 	{
 		vars.Version = "Full";
-
-		vars.Name = (Func <string>)(() =>
-		{
-			return new DeepPointer(game.ReadPointer((IntPtr) vars.RoomBasePtr) + (game.ReadValue<int>((IntPtr) vars.RoomNumPtr) * 8), 0x0).DerefString(game, 128);
-		});
+		vars.Bytes = 0x8;
 
 		foreach (var target in new SigScanTarget[] { roomNumTrg, roomBaseTrg, framePageTrg })
 		{
@@ -65,7 +65,7 @@ init
 	{
 		try
 		{
-			string name = vars.Name();
+			string name = new DeepPointer(game.ReadPointer((IntPtr)vars.RoomBasePtr) + (game.ReadValue<int>((IntPtr)vars.RoomNumPtr) * vars.Bytes), 0x0).DerefString(game, 128);
 
 			if (System.Text.RegularExpressions.Regex.IsMatch(name, @"^\w{4,}$"))
 			{
@@ -99,7 +99,6 @@ init
 		"room_options_animationstylesteam",
 		"room_controls",
 		"room_kusosnail_play",
-		"room_loadgame",
 		"room_2p_start",
 		"room_2p_select",
 		"room_2p_results",
@@ -156,7 +155,7 @@ init
 				index++;
 			}
 
-			if (vars.Version == "Full" && found == 3 || vars.Version == "Demo" && (vars.TempUnpatched != IntPtr.Zero || vars.TempPatched != IntPtr.Zero) && vars.SleepMarginPtr != IntPtr.Zero)
+			if ((vars.Version == "Full" && found == 3) || (vars.Version == "Demo" && (vars.TempUnpatched != IntPtr.Zero || vars.TempPatched != IntPtr.Zero) && vars.SleepMarginPtr != IntPtr.Zero))
 			{
 				current.RoomName = "";
 				vars.RoomName();
@@ -183,8 +182,8 @@ init
 						try
 						{
 							game.Suspend();
-							game.WriteBytes((IntPtr) vars.TempUnpatched, tempPatch); // when exiting the game, it tries to delete your %temp% folder. this patches that bug.
-							game.WriteBytes((IntPtr) vars.SleepMarginPtr, sleepMarginPatch); // makes the game run at full 60fps.
+							game.WriteBytes((IntPtr)vars.TempUnpatched, tempPatch); // when exiting the game, it tries to delete your %temp% folder. this patches that bug.
+							game.WriteBytes((IntPtr)vars.SleepMarginPtr, sleepMarginPatch); // makes the game run at full 60fps.
 						}
 						catch (Exception ex)
 						{
@@ -196,14 +195,14 @@ init
 							game.Resume();
 						}
 
-						if (game.ReadValue<int>((IntPtr) vars.SleepMarginPtr) != 0xC8)
+						if (game.ReadValue<int>((IntPtr)vars.SleepMarginPtr) != 0xC8)
 						{
 							vars.Log("ERROR: Patching failed.");
 						}
 						else
 						{
-							vars.RoomNum = new MemoryWatcher<int>((IntPtr) 0x9CB860);
-							vars.FrameCount = new MemoryWatcher<double>(new DeepPointer((IntPtr) 0x7C9730, 0x34, 0x10, 0x88, 0x10));
+							vars.RoomNum = new MemoryWatcher<int>((IntPtr)0x9CB860);
+							vars.FrameCount = new MemoryWatcher<double>(new DeepPointer((IntPtr)0x7C9730, 0x34, 0x10, 0x88, 0x10));
 
 							vars.Log("Task completed successfully.");
 							vars.TaskSuccessful = true;
@@ -221,13 +220,12 @@ init
 		{
 			IntPtr frameVarAddress = IntPtr.Zero;
 			vars.FramePageBase = 0;
-
-			int framePage = game.ReadValue<int>((IntPtr) vars.FramePagePtr);
+			int framePage = game.ReadValue<int>((IntPtr)vars.FramePagePtr);
 
 			foreach (var page in game.MemoryPages(false))
 			{
-				long start = (long) page.BaseAddress;
-				int size = (int) page.RegionSize;
+				long start = (long)page.BaseAddress;
+				int size = (int)page.RegionSize;
 				long end = start + size;
 
 				if (frameVarAddress == IntPtr.Zero)
@@ -247,8 +245,8 @@ init
 			{
 				foreach (var page in game.MemoryPages(false))
 				{
-					var scanner = new SignatureScanner(game, page.BaseAddress, (int) page.RegionSize);
-					var toBytes = BitConverter.GetBytes((int) frameVarAddress);
+					var scanner = new SignatureScanner(game, page.BaseAddress, (int)page.RegionSize);
+					var toBytes = BitConverter.GetBytes((int)frameVarAddress);
 					var toString = BitConverter.ToString(toBytes).Replace("-", " ");
 					var target = new SigScanTarget(0, "00 00 00 00", toString, "00 00 00 00");
 					var pointers = scanner.ScanAll(target);
@@ -265,22 +263,22 @@ init
 
 						foreach (var page_ in game.MemoryPages(false))
 						{
-							var scanner_ = new SignatureScanner(game, page_.BaseAddress, (int) page_.RegionSize);
+							var scanner_ = new SignatureScanner(game, page_.BaseAddress, (int)page_.RegionSize);
 							var pointers_ = scanner_.ScanAll(target_);
 
 							foreach (IntPtr pointer_ in pointers_)
 							{
 								int frameCountAddress = game.ReadValue<int>(pointer_ - 0x4);
-								double frameCount = game.ReadValue<double>((IntPtr) frameCountAddress);
+								double frameCount = game.ReadValue<double>((IntPtr)frameCountAddress);
 
 								if (frameCountAddress >= vars.FramePageBase && frameCountAddress <= vars.FramePageEnd && frameCount.ToString().All(Char.IsDigit))
 								{
 									vars.RoomName();
 
 									vars.RoomNum = new MemoryWatcher<int>(vars.RoomNumPtr);
-									vars.FrameCount = new MemoryWatcher<double>((IntPtr) frameCountAddress);
+									vars.FrameCount = new MemoryWatcher<double>((IntPtr)frameCountAddress);
 
-									vars.Log("Frame Counter: 0x" + frameCountAddress.ToString("X") + ", value: (double) " + frameCount);
+									vars.Log("frameCountAddress: [0x" + frameCountAddress.ToString("X") + "] -> " + frameCount);
 									vars.Log("Task completed successfully.");
 									vars.TaskSuccessful = true;
 
@@ -351,7 +349,7 @@ split
 reset
 {
 	return vars.FrameCount.Current < vars.FrameCount.Old ||
-	       vars.RoomActionList.Contains(current.RoomName) && (vars.Version == "Full" || vars.Version == "Demo" && current.RoomName != "room_levelselect") ||
+	       vars.RoomActionList.Contains(current.RoomName) && (vars.Version == "Full" || (vars.Version == "Demo" && current.RoomName != "room_levelselect")) ||
 	       vars.Version == "Demo" && current.RoomName != old.RoomName && old.RoomName == "room_levelselect";
 }
 
@@ -375,4 +373,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.4.2 02-Sep-2022
+// v0.4.3 03-Sep-2022
