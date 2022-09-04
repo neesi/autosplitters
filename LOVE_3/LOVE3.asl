@@ -8,7 +8,7 @@ startup
 	if (timer.CurrentTimingMethod == TimingMethod.RealTime)
 	{
 		var timingMessage = MessageBox.Show(
-			"Change timing method to Game Time? This keeps LiveSplit in sync with the game's frame counter.",
+			"Change timing method to Game Time?\nIt keeps LiveSplit in sync with the game's frame counter.",
 			"LiveSplit | LOVE 3",
 			MessageBoxButtons.YesNo,
 			MessageBoxIcon.Question,
@@ -285,4 +285,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.4.3 03-Sep-2022
+// v0.4.4 04-Sep-2022
