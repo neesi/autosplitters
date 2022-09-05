@@ -32,8 +32,8 @@ init
 
 	if (game.Is64Bit())
 	{
-		vars.Offset = "00 00 00 00";
 		vars.Bytes = 0x8;
+		vars.Pad = "00 00 00 00";
 
 		roomNumTrg = new SigScanTarget(7, "CC CC CC 8B D1 8B 0D ?? ?? ?? ?? E9 ?? ?? ?? ?? CC");
 		roomBaseTrg = new SigScanTarget(16, "FF C8 48 63 D0 48 63 D9 48 3B D3 7C 18 48 8B 0D");
@@ -46,8 +46,8 @@ init
 	}
 	else
 	{
-		vars.Offset = "";
 		vars.Bytes = 0x4;
+		vars.Pad = "";
 
 		foreach (var target in new SigScanTarget[] { roomNumTrg, roomBaseTrg, framePageTrg })
 		{
@@ -177,7 +177,7 @@ init
 					var scanner = new SignatureScanner(game, page.BaseAddress, (int)page.RegionSize);
 					var toBytes = BitConverter.GetBytes((int)frameVarAddress);
 					var toString = BitConverter.ToString(toBytes).Replace("-", " ");
-					var target = new SigScanTarget(0, vars.Offset, toString, vars.Offset);
+					var target = new SigScanTarget(0, vars.Pad, toString, vars.Pad);
 					var pointers = scanner.ScanAll(target);
 
 					foreach (IntPtr pointer in pointers)
@@ -188,7 +188,7 @@ init
 
 						var toBytes_ = BitConverter.GetBytes(frameIdentifier);
 						var toString_ = BitConverter.ToString(toBytes_).Replace("-", " ");
-						var target_ = new SigScanTarget(0, vars.Offset, toString_);
+						var target_ = new SigScanTarget(0, vars.Pad, toString_);
 
 						foreach (var page_ in game.MemoryPages(false))
 						{
@@ -280,4 +280,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.4.4 04-Sep-2022
+// v0.4.5 05-Sep-2022
