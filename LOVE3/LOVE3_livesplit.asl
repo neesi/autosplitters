@@ -154,7 +154,7 @@ init
 			vars.FramePageBase = 0;
 			int framePage = game.ReadValue<int>((IntPtr)vars.FramePagePtr);
 
-			foreach (var page in game.MemoryPages(false))
+			foreach (var page in game.MemoryPages())
 			{
 				long start = (long)page.BaseAddress;
 				int size = (int)page.RegionSize;
@@ -175,7 +175,7 @@ init
 
 			if (frameVarAddress != IntPtr.Zero && vars.FramePageBase > 0)
 			{
-				foreach (var page in game.MemoryPages(false))
+				foreach (var page in game.MemoryPages())
 				{
 					var scanner = new SignatureScanner(game, page.BaseAddress, (int)page.RegionSize);
 					var toBytes = BitConverter.GetBytes((int)frameVarAddress);
@@ -193,7 +193,7 @@ init
 						var toString_ = BitConverter.ToString(toBytes_).Replace("-", " ");
 						var target_ = new SigScanTarget(0, vars.Pad, toString_);
 
-						foreach (var page_ in game.MemoryPages(false))
+						foreach (var page_ in game.MemoryPages())
 						{
 							var scanner_ = new SignatureScanner(game, page_.BaseAddress, (int)page_.RegionSize);
 							var pointers_ = scanner_.ScanAll(target_);
@@ -285,4 +285,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.4.5 05-Sep-2022
+// v0.4.6 08-Sep-2022
