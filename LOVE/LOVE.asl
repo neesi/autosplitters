@@ -141,7 +141,7 @@ init
 				{
 					vars.Log("Patching game..");
 
-					byte[] sleepMarginPatch = new byte[] { 0xC8, 0x00, 0x00, 0x00 };
+					var sleepMarginPatch = new byte[] { 0xC8, 0x00, 0x00, 0x00 };
 
 					try
 					{
@@ -284,12 +284,12 @@ init
 
 						byte[] toBytes = BitConverter.GetBytes((int)variable.Value);
 						string toString = BitConverter.ToString(toBytes).Replace("-", " ");
-						var target = new SigScanTarget(0, pad, toString, pad);
+						var target = new SigScanTarget(-4, pad, toString, pad);
 						IEnumerable<IntPtr> pointers = scanner.ScanAll(target);
 
 						foreach (IntPtr pointer in pointers)
 						{
-							int variableIdentifier = game.ReadValue<int>(pointer - 0x4);
+							int variableIdentifier = game.ReadValue<int>(pointer);
 							if (variableIdentifier <= 0x186A0)
 							{
 								continue;
@@ -297,7 +297,7 @@ init
 
 							byte[] toBytes_ = BitConverter.GetBytes(variableIdentifier);
 							string toString_ = BitConverter.ToString(toBytes_).Replace("-", " ");
-							var target_ = new SigScanTarget(0, pad, toString_);
+							var target_ = new SigScanTarget(-4, pad, toString_);
 
 							foreach (var page_ in game.MemoryPages())
 							{
@@ -308,9 +308,9 @@ init
 
 								foreach (IntPtr result in results)
 								{
-									// if (result - 0x4) points to an address that is in the same page as variablePageAddress, it is likely the variable address.
+									// if result points to an address that is in the same page as variablePageAddress, it is likely the variable address.
 
-									long variableAddress = (long)game.ReadPointer(result - 0x4);
+									long variableAddress = (long)game.ReadPointer(result);
 									var element = new KeyValuePair<string, IntPtr>(variable.Key, (IntPtr)variableAddress);
 
 									if ((variableAddress >= variablePageBase && variableAddress <= variablePageEnd) && !variableAddressesFound.Contains(element))
@@ -325,7 +325,7 @@ init
 										else
 										{
 											var ptr = game.ReadPointer((IntPtr)variableAddress);
-											vars.Log(variable.Key + " address: [0x" + variableAddress.ToString("X") + "] -> 0x" + ptr);
+											vars.Log(variable.Key + " address: [0x" + variableAddress.ToString("X") + "] -> 0x" + ptr.ToString("X"));
 										}
 
 										uniqueVariablesFound = variableAddressesFound.GroupBy(f => f.Key).Distinct().Count();
@@ -450,4 +450,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.4.8 06-Oct-2022
+// v0.4.9 07-Oct-2022
