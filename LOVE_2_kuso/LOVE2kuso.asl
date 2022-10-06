@@ -41,7 +41,7 @@ init
 	try
 	{
 		vars.GameExe = modules.First().ToString();
-		if (!vars.GameExe.EndsWith(".exe"))
+		if (!vars.GameExe.ToLower().EndsWith(".exe"))
 		{
 			throw new Exception("Game not loaded yet.");
 		}
@@ -486,4 +486,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.4.8 07-Oct-2022
+// v0.4.9 07-Oct-2022
