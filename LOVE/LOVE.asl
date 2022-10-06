@@ -2,74 +2,9 @@ state("Love") {}
 
 startup
 {
-	vars.Log = (Action<object>)(output => print("   [LOVE]   " + output));
-
-	if (timer.CurrentTimingMethod == TimingMethod.RealTime)
-	{
-		var timingMessage = MessageBox.Show(
-			"Change timing method to Game Time?\nIt keeps LiveSplit in sync with the game's frame counter.",
-			"LiveSplit | LOVE",
-			MessageBoxButtons.YesNo,
-			MessageBoxIcon.Question,
-			MessageBoxDefaultButton.Button1,
-			(MessageBoxOptions)0x40000);
-
-		if (timingMessage == DialogResult.Yes)
-		{
-			timer.CurrentTimingMethod = TimingMethod.GameTime;
-		}
-	}
-}
-
-init
-{
-	vars.TaskSuccessful = false;
-
-	var roomNumTrg = new SigScanTarget(8, "56 E8 ?? ?? ?? ?? 8B 0D ?? ?? ?? ?? 83 C4 08 A1 ?? ?? ?? ?? 5F 5E 5B");
-	var roomBaseTrg = new SigScanTarget(10, "7E ?? 8B 2D ?? ?? ?? ?? 8B 3D ?? ?? ?? ?? 2B EF");
-	var framePageTrg = new SigScanTarget(3, "33 F6 A1 ?? ?? ?? ?? B9 ?? ?? ?? ?? 89 06 A1");
-	var frameVarTrg = new SigScanTarget(0, "70 6C 61 79 65 72 54 69 6D 65 72 00 78 78 78 78 70 6C 61 79 65 72 54 69 6D 65 72 00 78 78 78 78"); // playerTimer
-
-	if (game.Is64Bit())
-	{
-		vars.Bytes = 0x8;
-		vars.Pad = "00 00 00 00";
-
-		roomNumTrg = new SigScanTarget(7, "CC CC CC 8B D1 8B 0D ?? ?? ?? ?? E9 ?? ?? ?? ?? CC");
-		roomBaseTrg = new SigScanTarget(16, "FF C8 48 63 D0 48 63 D9 48 3B D3 7C 18 48 8B 0D");
-		framePageTrg = new SigScanTarget(4, "C3 48 8B 15 ?? ?? ?? ?? 48 85 D2 0F 85");
-
-		foreach (var target in new SigScanTarget[] { roomNumTrg, roomBaseTrg, framePageTrg })
-		{
-			target.OnFound = (p, s, ptr) => ptr + 0x4 + p.ReadValue<int>(ptr);
-		}
-	}
-	else
-	{
-		vars.Bytes = 0x4;
-		vars.Pad = "";
-
-		foreach (var target in new SigScanTarget[] { roomNumTrg, roomBaseTrg, framePageTrg })
-		{
-			target.OnFound = (p, s, ptr) => p.ReadPointer(ptr);
-		}
-	}
-
-	vars.RoomName = (Action)(() =>
-	{
-		try
-		{
-			string name = new DeepPointer(game.ReadPointer((IntPtr)vars.RoomBasePtr) + (game.ReadValue<int>((IntPtr)vars.RoomNumPtr) * vars.Bytes), 0x0).DerefString(game, 128);
-
-			if (System.Text.RegularExpressions.Regex.IsMatch(name, @"^\w{4,}$"))
-			{
-				current.RoomName = name.ToLower();
-			}
-		}
-		catch
-		{
-		}
-	});
+	vars.FastVariableScan = true;
+	vars.Log = (Action<object>)(output => print("   [" + vars.GameExe + "]   " + output));
+	settings.Add("gameTime", true, "Automatically change timing method to Game Time");
 
 	vars.RoomActionList = new List<string>()
 	{
@@ -89,42 +24,110 @@ init
 		"room_keyconfig_start",
 		"room_keyconfig_config"
 	};
+}
+
+init
+{
+	try
+	{
+		vars.GameExe = modules.First().ToString();
+		if (!vars.GameExe.EndsWith(".exe"))
+		{
+			throw new Exception("Game not loaded yet.");
+		}
+	}
+	catch
+	{
+		throw;
+	}
+
+	bool is64bit = game.Is64Bit();
+	int bytes = is64bit ? 0x8 : 0x4;
+	string pad = is64bit ? "00 00 00 00" : "";
+
+	string exePath = modules.First().FileName;
+	string dataPath = new FileInfo(exePath).DirectoryName + "\\data.win";
+
+	long exeSize = new FileInfo(exePath).Length;
+	long dataSize = new FileInfo(dataPath).Length;
+	long exeMemorySize = modules.First().ModuleMemorySize;
+
+	vars.Log("\"" + exePath + "\", exeSize: " + exeSize + ", dataSize: " + dataSize + ", exeMemorySize: " + exeMemorySize + ", 64-bit: " + is64bit);
+
+	vars.Done = false;
 
 	vars.CancelSource = new CancellationTokenSource();
 	System.Threading.Tasks.Task.Run(async () =>
 	{
-		vars.Log("Task started. Target scanning..");
-
-		var token = vars.CancelSource.Token;
+		CancellationToken token = vars.CancelSource.Token;
 		while (!token.IsCancellationRequested)
 		{
-			var scanner = new SignatureScanner(game, game.MainModule.BaseAddress, game.MainModule.ModuleMemorySize);
-
-			IntPtr roomNumPtr = vars.RoomNumPtr = scanner.Scan(roomNumTrg);
-			IntPtr roomBasePtr = vars.RoomBasePtr = scanner.Scan(roomBaseTrg);
-			IntPtr framePagePtr = vars.FramePagePtr = scanner.Scan(framePageTrg);
-
-			var names = new String[] { "roomNumPtr", "roomBasePtr", "framePagePtr" };
-			var results = new IntPtr[] { roomNumPtr, roomBasePtr, framePagePtr };
-
-			int index = 0;
-			int found = 0;
-			foreach (IntPtr result in results)
+			if (exeSize == 4917760 && dataSize == 46275241 && !is64bit)
 			{
-				if (result != IntPtr.Zero)
-				{
-					found++;
-					vars.Log((index + 1) + ". " + names[index] + ": [0x" + result.ToString("X") + "] -> 0x" + game.ReadPointer(result).ToString("X"));
-				}
-				else
-				{
-					vars.Log((index + 1) + ". " + names[index] + ": not found");
-				}
+				// itch.io bundles do not come with keys and the current game version on itch is very old.
 
-				index++;
+				vars.Version = "LOVE itch";
+
+				vars.RoomNum = 0xAA46A0;
+				vars.RoomBase = 0x8942A4;
+				vars.SleepMargin = 0x7EA048;
+
+				vars.RoomNumber = new MemoryWatcher<int>((IntPtr)vars.RoomNum);
+				vars.FrameCount = new MemoryWatcher<double>(new DeepPointer((IntPtr)0x8943CC, 0x2C, 0x10, 0xA74, 0x320));
+			}
+			else if (!is64bit)
+			{
+				vars.Version = "LOVE";
+
+				vars.PointerTargets = new List<KeyValuePair<string, SigScanTarget>>()
+				{
+					new KeyValuePair<string, SigScanTarget>("RoomNumTrg", new SigScanTarget(8, "56 E8 ?? ?? ?? ?? 8B 0D ?? ?? ?? ?? 83 C4 08 A1 ?? ?? ?? ?? 5F 5E 5B")),
+					new KeyValuePair<string, SigScanTarget>("RoomBaseTrg", new SigScanTarget(10, "7E ?? 8B 2D ?? ?? ?? ?? 8B 3D ?? ?? ?? ?? 2B EF")),
+					new KeyValuePair<string, SigScanTarget>("VarPageAddrTrg", new SigScanTarget(3, "33 F6 A1 ?? ?? ?? ?? B9 ?? ?? ?? ?? 89 06 A1"))
+				};
+
+				foreach (var target in vars.PointerTargets)
+				{
+					SigScanTarget trg = target.Value;
+					trg.OnFound = (p, s, addr) => p.ReadPointer(addr);
+				}
+			}
+			else if (is64bit)
+			{
+				// this version doesn't exist, but the signatures work for 64-bit versions of LOVE 2: kuso and LOVE 3, so this might work if there ever is a 64-bit LOVE.
+
+				vars.Version = "LOVE";
+
+				vars.PointerTargets = new List<KeyValuePair<string, SigScanTarget>>()
+				{
+					new KeyValuePair<string, SigScanTarget>("RoomNumTrg", new SigScanTarget(7, "CC CC CC 8B D1 8B 0D ?? ?? ?? ?? E9 ?? ?? ?? ?? CC")),
+					new KeyValuePair<string, SigScanTarget>("RoomBaseTrg", new SigScanTarget(16, "FF C8 48 63 D0 48 63 D9 48 3B D3 7C 18 48 8B 0D")),
+					new KeyValuePair<string, SigScanTarget>("VarPageAddrTrg", new SigScanTarget(4, "C3 48 8B 15 ?? ?? ?? ?? 48 85 D2 0F 85"))
+				};
+
+				foreach (var target in vars.PointerTargets)
+				{
+					SigScanTarget trg = target.Value;
+					trg.OnFound = (p, s, addr) => addr + 0x4 + p.ReadValue<int>(addr);
+				}
 			}
 
-			if (found == 3)
+			vars.RoomName = (Action)(() =>
+			{
+				try
+				{
+					string name = new DeepPointer(game.ReadPointer((IntPtr)vars.RoomBase) + (game.ReadValue<int>((IntPtr)vars.RoomNum) * bytes), 0x0).DerefString(game, 128);
+					if (System.Text.RegularExpressions.Regex.IsMatch(name, @"^\w{4,}$"))
+					{
+						current.RoomName = name.ToLower();
+					}
+				}
+				catch
+				{
+				}
+			});
+
+			if (vars.Version == "LOVE itch")
 			{
 				current.RoomName = "";
 				vars.RoomName();
@@ -136,7 +139,76 @@ init
 				}
 				else
 				{
-					vars.Log("Scanning for Frame Counter address..");
+					vars.Log("Patching game..");
+
+					byte[] sleepMarginPatch = new byte[] { 0xC8, 0x00, 0x00, 0x00 };
+
+					try
+					{
+						game.Suspend();
+						game.WriteBytes((IntPtr)vars.SleepMargin, sleepMarginPatch); // makes the game run at full 60fps.
+					}
+					finally
+					{
+						game.Resume();
+					}
+
+					if (settings["gameTime"])
+					{
+						timer.CurrentTimingMethod = TimingMethod.GameTime;
+					}
+
+					vars.Log("All done.");
+					vars.Done = true;
+					goto task_end;
+				}
+			}
+			else if (vars.Version == "LOVE")
+			{
+				vars.Log("Scanning for pointers..");
+				break;
+			}
+
+			vars.Log("Retrying..");
+			await System.Threading.Tasks.Task.Delay(2000, token);
+		}
+
+		while (!token.IsCancellationRequested)
+		{
+			var scanner = new SignatureScanner(game, modules.First().BaseAddress, modules.First().ModuleMemorySize);
+			var pointerTargetsFound = new List<KeyValuePair<string, IntPtr>>();
+
+			foreach (var target in vars.PointerTargets)
+			{
+				IntPtr result = scanner.Scan(target.Value);
+				if (result != IntPtr.Zero)
+				{
+					pointerTargetsFound.Add(new KeyValuePair<string, IntPtr>(target.Key, result));
+					vars.Log(target.Key + ": [0x" + result.ToString("X") + "] -> 0x" + game.ReadPointer(result).ToString("X"));
+				}
+				else
+				{
+					vars.Log(target.Key + ": not found");
+				}
+			}
+
+			if (pointerTargetsFound.Count == vars.PointerTargets.Count)
+			{
+				vars.RoomNum = pointerTargetsFound.First(f => f.Key == "RoomNumTrg").Value;
+				vars.RoomBase = pointerTargetsFound.First(f => f.Key == "RoomBaseTrg").Value;
+				vars.VarPageAddr = pointerTargetsFound.First(f => f.Key == "VarPageAddrTrg").Value;
+
+				current.RoomName = "";
+				vars.RoomName();
+				vars.Log("current.RoomName: \"" + current.RoomName + "\"");
+
+				if (current.RoomName == "")
+				{
+					vars.Log("ERROR: invalid current.RoomName");
+				}
+				else
+				{
+					vars.Log("Scanning for variable addresses..");
 					break;
 				}
 			}
@@ -147,9 +219,22 @@ init
 
 		while (!token.IsCancellationRequested)
 		{
-			IntPtr frameVarAddress = IntPtr.Zero;
-			vars.FramePageBase = 0;
-			int framePage = game.ReadValue<int>((IntPtr)vars.FramePagePtr);
+			var variableTargets = new List<KeyValuePair<string, SigScanTarget>>()
+			{
+				// target is a string, which contains the game's variable name for things like frame counter, checkpoint count, ...
+				// it should be 32 bytes, for example: "playerTimer.xxxxplayerTimer.xxxx" (. is 0x00, not ".")
+
+				//new KeyValuePair<string, SigScanTarget>("playerSpawns", new SigScanTarget(0, "70 6C 61 79 65 72 53 70 61 77 6E 73 00 78 78 78 70 6C 61 79 65 72 53 70 61 77 6E 73 00 78 78 78")),
+				new KeyValuePair<string, SigScanTarget>("playerTimer", new SigScanTarget(0, "70 6C 61 79 65 72 54 69 6D 65 72 00 78 78 78 78 70 6C 61 79 65 72 54 69 6D 65 72 00 78 78 78 78"))
+			};
+
+			var variableTargetsFound = new List<KeyValuePair<string, IntPtr>>();
+			var variableAddressesFound = new List<KeyValuePair<string, IntPtr>>();
+			int uniqueVariablesFound = 0;
+
+			long variablePageAddress = (long)game.ReadPointer((IntPtr)vars.VarPageAddr);
+			long variablePageBase = 0;
+			long variablePageEnd = 0;
 
 			foreach (var page in game.MemoryPages())
 			{
@@ -157,83 +242,165 @@ init
 				int size = (int)page.RegionSize;
 				long end = start + size;
 
-				if (frameVarAddress == IntPtr.Zero)
+				var scanner = new SignatureScanner(game, page.BaseAddress, (int)page.RegionSize);
+				foreach (var target in variableTargets)
 				{
-					var scanner = new SignatureScanner(game, page.BaseAddress, size);
-					frameVarAddress = scanner.Scan(frameVarTrg);
+					if (variableTargetsFound.Any(f => f.Key == target.Key))
+					{
+						continue;
+					}
+
+					IntPtr result = scanner.Scan(target.Value);
+					if (result != IntPtr.Zero)
+					{
+						variableTargetsFound.Add(new KeyValuePair<string, IntPtr>(target.Key, result));
+						vars.Log(target.Key + " string: 0x" + result.ToString("X"));
+					}
 				}
 
-				if (framePage >= start && framePage <= end)
+				if (variablePageAddress >= start && variablePageAddress <= end)
 				{
-					vars.FramePageBase = start;
-					vars.FramePageEnd = end;
+					// variablePageAddress is always in the same page as frame counter etc. addresses.
+
+					variablePageBase = start;
+					variablePageEnd = end;
 				}
 			}
 
-			if (frameVarAddress != IntPtr.Zero && vars.FramePageBase > 0)
+			if (variableTargetsFound.Count == variableTargets.Count && variablePageBase > 0)
 			{
 				foreach (var page in game.MemoryPages())
 				{
 					var scanner = new SignatureScanner(game, page.BaseAddress, (int)page.RegionSize);
-					var toBytes = BitConverter.GetBytes((int)frameVarAddress);
-					var toString = BitConverter.ToString(toBytes).Replace("-", " ");
-					var target = new SigScanTarget(0, vars.Pad, toString, vars.Pad);
-					var pointers = scanner.ScanAll(target);
 
-					foreach (IntPtr pointer in pointers)
+					foreach (var variable in variableTargetsFound)
 					{
-						int frameIdentifier = game.ReadValue<int>(pointer - 0x4);
-
-						if (frameIdentifier <= 0x186A0) continue;
-
-						var toBytes_ = BitConverter.GetBytes(frameIdentifier);
-						var toString_ = BitConverter.ToString(toBytes_).Replace("-", " ");
-						var target_ = new SigScanTarget(0, vars.Pad, toString_);
-
-						foreach (var page_ in game.MemoryPages())
+						if (vars.FastVariableScan && variableAddressesFound.Any(f => f.Key == variable.Key))
 						{
-							var scanner_ = new SignatureScanner(game, page_.BaseAddress, (int)page_.RegionSize);
-							var pointers_ = scanner_.ScanAll(target_);
+							continue;
+						}
 
-							foreach (IntPtr pointer_ in pointers_)
+						// scan for pointers to variable string address.
+
+						byte[] toBytes = BitConverter.GetBytes((int)variable.Value);
+						string toString = BitConverter.ToString(toBytes).Replace("-", " ");
+						var target = new SigScanTarget(0, pad, toString, pad);
+						IEnumerable<IntPtr> pointers = scanner.ScanAll(target);
+
+						foreach (IntPtr pointer in pointers)
+						{
+							int variableIdentifier = game.ReadValue<int>(pointer - 0x4);
+							if (variableIdentifier <= 0x186A0)
 							{
-								int frameCountAddress = game.ReadValue<int>(pointer_ - 0x4);
-								double frameCount = game.ReadValue<double>((IntPtr)frameCountAddress);
+								continue;
+							}
 
-								if (frameCountAddress >= vars.FramePageBase && frameCountAddress <= vars.FramePageEnd && frameCount.ToString().All(Char.IsDigit))
+							byte[] toBytes_ = BitConverter.GetBytes(variableIdentifier);
+							string toString_ = BitConverter.ToString(toBytes_).Replace("-", " ");
+							var target_ = new SigScanTarget(0, pad, toString_);
+
+							foreach (var page_ in game.MemoryPages())
+							{
+								// scan for instances of the supposed variable identifier.
+
+								var scanner_ = new SignatureScanner(game, page_.BaseAddress, (int)page_.RegionSize);
+								IEnumerable<IntPtr> results = scanner_.ScanAll(target_);
+
+								foreach (IntPtr result in results)
 								{
-									vars.RoomName();
+									// if (result - 0x4) points to an address that is in the same page as variablePageAddress, it is likely the variable address.
 
-									vars.RoomNum = new MemoryWatcher<int>(vars.RoomNumPtr);
-									vars.FrameCount = new MemoryWatcher<double>((IntPtr)frameCountAddress);
+									long variableAddress = (long)game.ReadPointer(result - 0x4);
+									var element = new KeyValuePair<string, IntPtr>(variable.Key, (IntPtr)variableAddress);
 
-									vars.Log("frameCountAddress: [0x" + frameCountAddress.ToString("X") + "] -> " + frameCount);
-									vars.Log("Task completed successfully.");
-									vars.TaskSuccessful = true;
+									if ((variableAddress >= variablePageBase && variableAddress <= variablePageEnd) && !variableAddressesFound.Contains(element))
+									{
+										variableAddressesFound.Add(element);
 
-									goto end;
+										double value = game.ReadValue<double>((IntPtr)variableAddress);
+										if (value.ToString().All(Char.IsDigit))
+										{
+											vars.Log(variable.Key + " address: [0x" + variableAddress.ToString("X") + "] -> <double>" + value);
+										}
+										else
+										{
+											var ptr = game.ReadPointer((IntPtr)variableAddress);
+											vars.Log(variable.Key + " address: [0x" + variableAddress.ToString("X") + "] -> 0x" + ptr);
+										}
+
+										uniqueVariablesFound = variableAddressesFound.GroupBy(f => f.Key).Distinct().Count();
+										if (vars.FastVariableScan && uniqueVariablesFound == variableTargets.Count)
+										{
+											goto scan_completed;
+										}
+										else if (vars.FastVariableScan && variableAddressesFound.Any(f => f.Key == variable.Key))
+										{
+											goto next_variable;
+										}
+									}
 								}
 							}
 						}
+
+						next_variable:;
+					}
+				}
+
+				scan_completed:;
+
+				if (uniqueVariablesFound == variableTargets.Count)
+				{
+					bool done = false;
+
+					foreach (var variable in variableAddressesFound)
+					{
+						string name = variable.Key;
+						IntPtr address = variable.Value;
+						double value = game.ReadValue<double>(address);
+
+						if (name == "playerTimer" && value.ToString().All(Char.IsDigit))
+						{
+							vars.RoomNumber = new MemoryWatcher<int>(vars.RoomNum);
+							vars.FrameCount = new MemoryWatcher<double>(address);
+
+							vars.RoomName();
+							done = true;
+						}
+					}
+
+					if (done)
+					{
+						if (settings["gameTime"])
+						{
+							timer.CurrentTimingMethod = TimingMethod.GameTime;
+						}
+
+						vars.Log("All done.");
+						vars.Done = true;
+						goto task_end;
 					}
 				}
 			}
 
-			await System.Threading.Tasks.Task.Delay(1000, token);
+			vars.Log("Retrying..");
+			await System.Threading.Tasks.Task.Delay(2000, token);
 		}
 
-		end:;
+		task_end:;
 	});
 }
 
 update
 {
-	if (!vars.TaskSuccessful) return false;
+	if (!vars.Done)
+	{
+		return false;
+	}
 
-	vars.RoomNum.Update(game);
+	vars.RoomNumber.Update(game);
 	vars.FrameCount.Update(game);
 
-	if (vars.RoomNum.Changed)
+	if (vars.RoomNumber.Changed)
 	{
 		vars.RoomName();
 
@@ -251,7 +418,7 @@ start
 
 split
 {
-	return vars.RoomNum.Changed && vars.FrameCount.Current > 90;
+	return vars.RoomNumber.Changed && vars.FrameCount.Current > 90;
 }
 
 reset
@@ -280,4 +447,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.4.6 08-Sep-2022
+// v0.4.7 06-Oct-2022
