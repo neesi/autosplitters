@@ -272,13 +272,16 @@ init
 										}
 
 										uniqueVariablesFound = variableAddressesFound.GroupBy(f => f.Key).Distinct().Count();
-										if (vars.FastVariableScan && uniqueVariablesFound == variableTargets.Count)
+										if (vars.FastVariableScan)
 										{
-											goto scan_completed;
-										}
-										else if (vars.FastVariableScan && variableAddressesFound.Any(f => f.Key == variable.Key))
-										{
-											goto next_variable;
+											if (uniqueVariablesFound == variableTargets.Count)
+											{
+												goto scan_completed;
+											}
+											else
+											{
+												goto next_variable;
+											}
 										}
 									}
 								}
@@ -390,4 +393,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.4.7 06-Oct-2022
+// v0.4.8 06-Oct-2022
