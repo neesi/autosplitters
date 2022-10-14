@@ -74,9 +74,11 @@ init
 					trg.OnFound = (p, s, addr) => p.ReadPointer(addr);
 				}
 			}
-			else if (vars.GameExe.ToLower() == "love3.exe" && is64bit)
+			else if (is64bit)
 			{
-				vars.Version = "Full";
+				// 64-bit LOVE 3 Demo doesn't exist, but the signatures work for 64-bit versions of LOVE 2: kuso and LOVE 3, so this might work if there ever is a 64-bit LOVE 3 Demo.
+
+				vars.Version = vars.GameExe.ToLower() == "love3.exe" ? "Full" : "Demo";
 
 				vars.PointerTargets = new List<KeyValuePair<string, SigScanTarget>>()
 				{
@@ -90,11 +92,6 @@ init
 					SigScanTarget trg = target.Value;
 					trg.OnFound = (p, s, addr) => addr + 0x4 + p.ReadValue<int>(addr);
 				}
-			}
-			else
-			{
-				vars.Log("Unsupported game version. Stopping.");
-				goto task_end;
 			}
 
 			vars.RoomName = (Action)(() =>
@@ -349,7 +346,6 @@ update
 	if (vars.RoomNumber.Changed)
 	{
 		vars.RoomName();
-
 		if (current.RoomName != old.RoomName)
 		{
 			vars.Log("current.RoomName: \"" + old.RoomName + "\" -> \"" + current.RoomName + "\"");
@@ -393,4 +389,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.5.0 07-Oct-2022
+// v0.5.1 14-Oct-2022

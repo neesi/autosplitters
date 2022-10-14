@@ -324,7 +324,7 @@ init
 										}
 										else
 										{
-											var ptr = game.ReadPointer((IntPtr)variableAddress);
+											IntPtr ptr = game.ReadPointer((IntPtr)variableAddress);
 											vars.Log(variable.Key + " address: [0x" + variableAddress.ToString("X") + "] -> 0x" + ptr.ToString("X"));
 										}
 
@@ -406,7 +406,6 @@ update
 	if (vars.RoomNumber.Changed)
 	{
 		vars.RoomName();
-
 		if (current.RoomName != old.RoomName)
 		{
 			vars.Log("current.RoomName: \"" + old.RoomName + "\" -> \"" + current.RoomName + "\"");
@@ -450,4 +449,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.5.0 07-Oct-2022
+// v0.5.1 14-Oct-2022
