@@ -64,7 +64,7 @@ init
 		{
 			if (exeSize == 4917760 && dataSize == 46275241 && !is64bit)
 			{
-				// itch.io bundles do not come with keys and the current game version on itch is very old.
+				// itch.io bundles do not come with keys and the current game version on itch is very outdated.
 
 				vars.Version = "LOVE itch";
 
@@ -146,7 +146,9 @@ init
 					try
 					{
 						game.Suspend();
-						game.WriteBytes((IntPtr)vars.SleepMargin, sleepMarginPatch); // makes the game run at full 60fps.
+
+						// makes the game run at full 60fps regardless of your display refresh rate or windows version.
+						game.WriteBytes((IntPtr)vars.SleepMargin, sleepMarginPatch);
 					}
 					finally
 					{
@@ -267,7 +269,7 @@ init
 				}
 			}
 
-			if (variableTargetsFound.Count == variableTargets.Count && variablePageBase > 0)
+			if (variableTargetsFound.Count == variableTargets.Count && variableTargets.Count > 0 && variablePageBase > 0)
 			{
 				foreach (var page in game.MemoryPages())
 				{
@@ -315,8 +317,6 @@ init
 
 									if ((variableAddress >= variablePageBase && variableAddress <= variablePageEnd) && !variableAddressesFound.Contains(element))
 									{
-										variableAddressesFound.Add(element);
-
 										double value = game.ReadValue<double>((IntPtr)variableAddress);
 										if (value.ToString().All(Char.IsDigit))
 										{
@@ -328,7 +328,12 @@ init
 											vars.Log(variable.Key + " address: [0x" + variableAddress.ToString("X") + "] -> 0x" + ptr.ToString("X"));
 										}
 
-										uniqueVariablesFound = variableAddressesFound.GroupBy(f => f.Key).Distinct().Count();
+										if (uniqueVariablesFound < variableTargets.Count)
+										{
+											variableAddressesFound.Add(element);
+											uniqueVariablesFound = variableAddressesFound.GroupBy(f => f.Key).Distinct().Count();
+										}
+
 										if (vars.FastVariableScan)
 										{
 											if (uniqueVariablesFound == variableTargets.Count)
@@ -353,25 +358,31 @@ init
 
 				if (uniqueVariablesFound == variableTargets.Count)
 				{
-					bool done = false;
-
+					int found = 0;
 					foreach (var variable in variableAddressesFound)
 					{
 						string name = variable.Key;
 						IntPtr address = variable.Value;
-						double value = game.ReadValue<double>(address);
 
-						if (name == "playerTimer" && value.ToString().All(Char.IsDigit))
+						if (name == "playerTimer")
 						{
-							vars.RoomNumber = new MemoryWatcher<int>(vars.RoomNum);
-							vars.FrameCount = new MemoryWatcher<double>(address);
-
-							vars.RoomName();
-							done = true;
+							double value = game.ReadValue<double>(address);
+							if (value.ToString().All(Char.IsDigit))
+							{
+								vars.RoomNumber = new MemoryWatcher<int>(vars.RoomNum);
+								vars.FrameCount = new MemoryWatcher<double>(address);
+								vars.RoomName();
+							}
+							else
+							{
+								break;
+							}
 						}
+
+						found++;
 					}
 
-					if (done)
+					if (found == uniqueVariablesFound)
 					{
 						if (settings["gameTime"])
 						{
@@ -449,4 +460,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.5.1 14-Oct-2022
+// v0.5.2 25-Oct-2022
