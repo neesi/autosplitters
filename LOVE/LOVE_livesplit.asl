@@ -274,7 +274,6 @@ init
 				foreach (var page in game.MemoryPages())
 				{
 					var scanner = new SignatureScanner(game, page.BaseAddress, (int)page.RegionSize);
-
 					foreach (var variable in variableTargetsFound)
 					{
 						if (vars.FastVariableScan && variableAddressesFound.Any(f => f.Key == variable.Key))
@@ -460,4 +459,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.5.2 25-Oct-2022
+// v0.5.3 26-Oct-2022
