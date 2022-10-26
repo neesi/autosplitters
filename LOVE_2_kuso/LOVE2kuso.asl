@@ -74,6 +74,8 @@ init
 		CancellationToken token = vars.CancelSource.Token;
 		while (!token.IsCancellationRequested)
 		{
+			vars.Log("Checking game version..");
+
 			if (exeSize == 4270592 && !is64bit)
 			{
 				vars.Version = "Demo";
@@ -145,7 +147,7 @@ init
 
 				if (current.RoomName == "")
 				{
-					vars.Log("ERROR: invalid current.RoomName");
+					vars.Log("Invalid current.RoomName");
 				}
 				else
 				{
@@ -184,16 +186,16 @@ init
 			}
 			else if (vars.Version == "Full")
 			{
-				vars.Log("Scanning for pointers..");
 				break;
 			}
 
-			vars.Log("Retrying..");
 			await System.Threading.Tasks.Task.Delay(2000, token);
 		}
 
 		while (!token.IsCancellationRequested)
 		{
+			vars.Log("Scanning for pointers..");
+
 			var scanner = new SignatureScanner(game, modules.First().BaseAddress, modules.First().ModuleMemorySize);
 			var pointerTargetsFound = new List<KeyValuePair<string, IntPtr>>();
 
@@ -213,9 +215,9 @@ init
 
 			if (pointerTargetsFound.Count == vars.PointerTargets.Count)
 			{
-				vars.RoomNum = pointerTargetsFound.First(f => f.Key == "RoomNumTrg").Value;
-				vars.RoomBase = pointerTargetsFound.First(f => f.Key == "RoomBaseTrg").Value;
-				vars.VarPageAddr = pointerTargetsFound.First(f => f.Key == "VarPageAddrTrg").Value;
+				vars.RoomNum = pointerTargetsFound.FirstOrDefault(f => f.Key == "RoomNumTrg").Value;
+				vars.RoomBase = pointerTargetsFound.FirstOrDefault(f => f.Key == "RoomBaseTrg").Value;
+				vars.VarPageAddr = pointerTargetsFound.FirstOrDefault(f => f.Key == "VarPageAddrTrg").Value;
 
 				current.RoomName = "";
 				vars.RoomName();
@@ -223,21 +225,21 @@ init
 
 				if (current.RoomName == "")
 				{
-					vars.Log("ERROR: invalid current.RoomName");
+					vars.Log("Invalid current.RoomName");
 				}
 				else
 				{
-					vars.Log("Scanning for variable addresses..");
 					break;
 				}
 			}
 
-			vars.Log("Retrying..");
 			await System.Threading.Tasks.Task.Delay(2000, token);
 		}
 
 		while (!token.IsCancellationRequested)
 		{
+			vars.Log("Scanning for variable targets..");
+
 			var variableTargets = new List<KeyValuePair<string, SigScanTarget>>()
 			{
 				// target is a string, which contains the game's variable name for things like frame counter, checkpoint count, ...
@@ -273,7 +275,7 @@ init
 					if (result != IntPtr.Zero)
 					{
 						variableTargetsFound.Add(new KeyValuePair<string, IntPtr>(target.Key, result));
-						vars.Log(target.Key + " string: 0x" + result.ToString("X"));
+						vars.Log(target.Key + " target: 0x" + result.ToString("X"));
 					}
 				}
 
@@ -286,8 +288,13 @@ init
 				}
 			}
 
+			vars.Log("variableTargetsFound: " + variableTargetsFound.Count + "/" + variableTargets.Count);
+			vars.Log("variablePageBase: 0x" + variablePageBase.ToString("X") + ", variablePageEnd: 0x" + variablePageEnd.ToString("X"));
+
 			if (variableTargetsFound.Count == variableTargets.Count && variableTargets.Count > 0 && variablePageBase > 0)
 			{
+				vars.Log("Scanning for variable addresses..");
+
 				foreach (var page in game.MemoryPages())
 				{
 					var scanner = new SignatureScanner(game, page.BaseAddress, (int)page.RegionSize);
@@ -412,7 +419,6 @@ init
 				}
 			}
 
-			vars.Log("Retrying..");
 			await System.Threading.Tasks.Task.Delay(2000, token);
 		}
 
@@ -496,4 +502,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.5.2 26-Oct-2022
+// v0.5.3 26-Oct-2022
