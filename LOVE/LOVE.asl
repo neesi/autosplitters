@@ -13,16 +13,9 @@ startup
 		"start",
 		"mainmenu",
 		"gameselect",
-		"about_room",
 		"levelselect_room",
-		"tutorial_room",
-		"options_room",
-		"soundtest_room",
 		"flap_start_room",
-		"flap_play_room",
-		"room_load",
-		"room_keyconfig_start",
-		"room_keyconfig_config"
+		"flap_play_room"
 	};
 }
 
@@ -465,4 +458,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.5.4 26-Oct-2022
+// v0.5.5 27-Oct-2022

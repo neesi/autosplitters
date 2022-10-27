@@ -17,22 +17,7 @@ startup
 		"room_levelselect_kuso",
 		"room_levelselect_love",
 		"room_levelselect_other",
-		"room_achievements",
-		"room_tut1",
-		"room_tut2",
-		"room_tut3",
-		"room_credits",
-		"room_options",
-		"room_options_camera",
-		"room_options_animationstyle",
-		"room_options_animationstylesteam",
-		"room_controls",
-		"room_kusosnail_play",
-		"room_2p_start",
-		"room_2p_select",
-		"room_2p_results",
-		"room_loadgame",
-		"room_about"
+		"room_2p_select"
 	};
 }
 
@@ -502,4 +487,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.5.3 26-Oct-2022
+// v0.5.4 27-Oct-2022

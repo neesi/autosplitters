@@ -13,11 +13,7 @@ startup
 		"room_displaylogos",
 		"room_controlsdisplay",
 		"room_mainmenu",
-		"room_levelselect",
-		"room_credits",
-		"room_keyboardmapping",
-		"room_tutorial",
-		"room_achievements"
+		"room_levelselect"
 	};
 }
 
@@ -404,4 +400,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.5.4 26-Oct-2022
+// v0.5.5 27-Oct-2022
