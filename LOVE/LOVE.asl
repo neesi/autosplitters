@@ -76,9 +76,9 @@ init
 
 				vars.PointerTargets = new List<KeyValuePair<string, SigScanTarget>>()
 				{
-					new KeyValuePair<string, SigScanTarget>("RoomNumTrg", new SigScanTarget(8, "56 E8 ?? ?? ?? ?? 8B 0D ?? ?? ?? ?? 83 C4 08 A1 ?? ?? ?? ?? 5F 5E 5B")),
-					new KeyValuePair<string, SigScanTarget>("RoomBaseTrg", new SigScanTarget(10, "7E ?? 8B 2D ?? ?? ?? ?? 8B 3D ?? ?? ?? ?? 2B EF")),
-					new KeyValuePair<string, SigScanTarget>("VarPageAddrTrg", new SigScanTarget(3, "33 F6 A1 ?? ?? ?? ?? B9 ?? ?? ?? ?? 89 06 A1"))
+					new KeyValuePair<string, SigScanTarget>("RoomNum", new SigScanTarget(8, "56 E8 ?? ?? ?? ?? 8B 0D ?? ?? ?? ?? 83 C4 08 A1 ?? ?? ?? ?? 5F 5E 5B")),
+					new KeyValuePair<string, SigScanTarget>("RoomBase", new SigScanTarget(10, "7E ?? 8B 2D ?? ?? ?? ?? 8B 3D ?? ?? ?? ?? 2B EF")),
+					new KeyValuePair<string, SigScanTarget>("VariablePage", new SigScanTarget(3, "33 F6 A1 ?? ?? ?? ?? B9 ?? ?? ?? ?? 89 06 A1"))
 				};
 
 				foreach (var target in vars.PointerTargets)
@@ -95,9 +95,9 @@ init
 
 				vars.PointerTargets = new List<KeyValuePair<string, SigScanTarget>>()
 				{
-					new KeyValuePair<string, SigScanTarget>("RoomNumTrg", new SigScanTarget(7, "CC CC CC 8B D1 8B 0D ?? ?? ?? ?? E9 ?? ?? ?? ?? CC")),
-					new KeyValuePair<string, SigScanTarget>("RoomBaseTrg", new SigScanTarget(16, "FF C8 48 63 D0 48 63 D9 48 3B D3 7C 18 48 8B 0D")),
-					new KeyValuePair<string, SigScanTarget>("VarPageAddrTrg", new SigScanTarget(4, "C3 48 8B 15 ?? ?? ?? ?? 48 85 D2 0F 85"))
+					new KeyValuePair<string, SigScanTarget>("RoomNum", new SigScanTarget(7, "CC CC CC 8B D1 8B 0D ?? ?? ?? ?? E9 ?? ?? ?? ?? CC")),
+					new KeyValuePair<string, SigScanTarget>("RoomBase", new SigScanTarget(16, "FF C8 48 63 D0 48 63 D9 48 3B D3 7C 18 48 8B 0D")),
+					new KeyValuePair<string, SigScanTarget>("VariablePage", new SigScanTarget(4, "C3 48 8B 15 ?? ?? ?? ?? 48 85 D2 0F 85"))
 				};
 
 				foreach (var target in vars.PointerTargets)
@@ -191,9 +191,9 @@ init
 
 			if (pointerTargetsFound.Count == vars.PointerTargets.Count)
 			{
-				vars.RoomNum = pointerTargetsFound.FirstOrDefault(f => f.Key == "RoomNumTrg").Value;
-				vars.RoomBase = pointerTargetsFound.FirstOrDefault(f => f.Key == "RoomBaseTrg").Value;
-				vars.VarPageAddr = pointerTargetsFound.FirstOrDefault(f => f.Key == "VarPageAddrTrg").Value;
+				vars.RoomNum = pointerTargetsFound.FirstOrDefault(f => f.Key == "RoomNum").Value;
+				vars.RoomBase = pointerTargetsFound.FirstOrDefault(f => f.Key == "RoomBase").Value;
+				vars.VariablePage = pointerTargetsFound.FirstOrDefault(f => f.Key == "VariablePage").Value;
 
 				current.RoomName = "";
 				vars.RoomName();
@@ -229,7 +229,7 @@ init
 			var variableAddressesFound = new List<KeyValuePair<string, IntPtr>>();
 			int uniqueVariablesFound = 0;
 
-			long variablePageAddress = (long)game.ReadPointer((IntPtr)vars.VarPageAddr);
+			long variablePageAddress = (long)game.ReadPointer((IntPtr)vars.VariablePage);
 			long variablePageBase = 0;
 			long variablePageEnd = 0;
 
@@ -458,4 +458,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.5.5 27-Oct-2022
+// v0.5.6 18-Nov-2022
