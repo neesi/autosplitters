@@ -13,7 +13,8 @@ startup
 		"room_displaylogos",
 		"room_controlsdisplay",
 		"room_mainmenu",
-		"room_levelselect"
+		"room_levelselect",
+		"room_menu_lovecustom"
 	};
 }
 
@@ -81,7 +82,7 @@ init
 				vars.PointerTargets = new List<KeyValuePair<string, SigScanTarget>>()
 				{
 					new KeyValuePair<string, SigScanTarget>("RoomNum", new SigScanTarget(7, "CC CC CC 8B D1 8B 0D ?? ?? ?? ?? E9 ?? ?? ?? ?? CC")),
-					new KeyValuePair<string, SigScanTarget>("RoomBase", new SigScanTarget(16, "FF C8 48 63 D0 48 63 D9 48 3B D3 7C 18 48 8B 0D")),
+					new KeyValuePair<string, SigScanTarget>("RoomBase", new SigScanTarget(20, "48 ?? ?? ?? ?? 89 35 ?? ?? ?? ?? 89 35 ?? ?? ?? ?? 48 89 35")),
 					new KeyValuePair<string, SigScanTarget>("VariablePage", new SigScanTarget(4, "C3 48 8B 15 ?? ?? ?? ?? 48 85 D2 0F 85"))
 				};
 
@@ -400,4 +401,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.5.6 18-Nov-2022
+// v0.5.7 23-Dec-2022
