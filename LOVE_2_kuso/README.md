@@ -2,7 +2,7 @@
 
 > **Note**
 >
-> - The splitter now patches the `%TEMP%` bug and stops the game from attempting to delete your Temp folder.
+> - The splitter now patches the `%TEMP%` bug and stops kuso Demo from attempting to delete your Temp folder.
 > - The patch is ***temporary*** - it does not edit any files. You have to load the splitter every time you run the game.
 > - You should still create the `!!!!!!!!!!!!!!!!!!!!!!!!` folder as described below, to protect `%TEMP%` even without LiveSplit.
 
