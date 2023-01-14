@@ -387,7 +387,7 @@ init
 						found++;
 					}
 
-					if (found == uniqueVariablesFound)
+					if (found == variableAddressesFound.Count)
 					{
 						vars.Done();
 						goto task_end;
@@ -478,4 +478,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.5.7 02-Jan-2023
+// v0.5.8 14-Jan-2023
