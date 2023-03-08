@@ -77,7 +77,6 @@ init
 	System.Threading.Tasks.Task.Run(async () =>
 	{
 		var pointerTargets = new List<KeyValuePair<string, SigScanTarget>>();
-
 		if (is64bit)
 		{
 			vars.Version = "Full";
@@ -280,7 +279,7 @@ init
 			// 6. If variableAddress is in the same page as variablePageAddress, it is potentially the variable address.
 
 			// fastScan allows only one variablesFound address per variableTarget and skips further scan attempts for that variable.
-			// Each variableTarget should have only one associated variableAddress. Disabling fastScan can help with debugging if the script is finding a wrong variableAddress.
+			// Each variableTarget should have only one associated variableAddress. Disabling fastScan may help with debugging if the script is finding a wrong variableAddress.
 
 			bool fastScan = true;
 
@@ -557,4 +556,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.7.0 08-Mar-2023
+// v0.7.1 08-Mar-2023
