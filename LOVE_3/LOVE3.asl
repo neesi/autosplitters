@@ -103,8 +103,8 @@ init
 			foreach (KeyValuePair<string, SigScanTarget> target in pointerTargets)
 			{
 				target.Value.OnFound = (proc, scan, address) => is64bit ? address + 0x4 + proc.ReadValue<int>(address) : proc.ReadPointer(address);
-
 				IntPtr result = scanner.Scan(target.Value);
+
 				if (result != IntPtr.Zero)
 				{
 					pointersFound.Add(new KeyValuePair<string, IntPtr>(target.Key, result));
@@ -215,7 +215,8 @@ init
 			// 6. If variableAddress is in the same page as variablePageAddress, it is potentially the variable address.
 
 			// fastScan allows only one variablesFound address per variableTarget and skips further scan attempts for that variable.
-			// Each variableTarget should have only one associated variableAddress. Disabling fastScan may help with debugging if the script is finding a wrong variableAddress.
+			// Each variableTarget should have only one associated variableAddress.
+			// Disabling fastScan may help with debugging if the script is finding a wrong variableAddress.
 
 			bool fastScan = true;
 
@@ -469,4 +470,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.7.2 08-Mar-2023
+// v0.7.3 09-Mar-2023
