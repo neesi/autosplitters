@@ -6,14 +6,14 @@ startup
 
 	vars.ActionRooms = new List<string>
 	{
-		"loading",
 		"controls_room",
-		"start",
-		"mainmenu",
+		"flap_play_room",
+		"flap_start_room",
 		"gameselect",
 		"levelselect_room",
-		"flap_start_room",
-		"flap_play_room"
+		"loading",
+		"mainmenu",
+		"start"
 	};
 }
 
@@ -518,4 +518,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.7.1 08-Mar-2023
+// v0.7.2 08-Mar-2023

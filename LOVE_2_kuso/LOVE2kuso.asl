@@ -6,16 +6,16 @@ startup
 
 	vars.ActionRooms = new List<string>
 	{
-		"room_startup",
-		"room_titlescreen",
-		"room_mainmenu",
+		"room_2p_select",
 		"room_gameselect",
-		"room_levelsetselect",
 		"room_levelselect",
 		"room_levelselect_kuso",
 		"room_levelselect_love",
 		"room_levelselect_other",
-		"room_2p_select"
+		"room_levelsetselect",
+		"room_mainmenu",
+		"room_startup",
+		"room_titlescreen"
 	};
 }
 
@@ -556,4 +556,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.7.1 08-Mar-2023
+// v0.7.2 08-Mar-2023

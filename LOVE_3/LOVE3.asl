@@ -7,12 +7,12 @@ startup
 
 	vars.ActionRooms = new List<string>
 	{
-		"room_startup",
-		"room_displaylogos",
 		"room_controlsdisplay",
-		"room_mainmenu",
+		"room_displaylogos",
 		"room_levelselect",
-		"room_menu_lovecustom"
+		"room_mainmenu",
+		"room_menu_lovecustom",
+		"room_startup"
 	};
 }
 
@@ -469,4 +469,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.7.1 08-Mar-2023
+// v0.7.2 08-Mar-2023
