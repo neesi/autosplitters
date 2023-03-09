@@ -209,10 +209,10 @@ init
 
 			// 1. Scan variableTargets for string addresses.
 			// 2. Scan for pointers to each address in stringsFound.
-			// 3. variableIdentifier is next to stringPointer. -4 bytes for 32-bit, -8 bytes for 64-bit. 
+			// 3. variableIdentifier is next to stringPointer. -4 bytes for 32-bit, -8 bytes for 64-bit.
 			// 4. Scan for instances of the supposed variableIdentifier.
-			// 5. variablePointer is next to variableIdentifier. -4 bytes for 32-bit, -8 bytes for 64-bit. 
-			// 6. If variableAddress is in the same page as variablePageAddress, it is potentially the variable address.
+			// 5. variablePointer is next to variableIdentifier. -4 bytes for 32-bit, -8 bytes for 64-bit.
+			// 6. If variableAddress is in the same page as variablePageAddress, it is potentially the actual variable address.
 
 			// fastScan allows only one variablesFound address per variableTarget and skips further scan attempts for that variable.
 			// Each variableTarget should have only one associated variableAddress.
@@ -470,4 +470,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.7.3 09-Mar-2023
+// v0.7.4 09-Mar-2023
