@@ -232,12 +232,9 @@ init
 					IEnumerable<IntPtr> results = scanner.ScanAll(target.Value);
 					foreach (IntPtr stringAddress in results)
 					{
-						if (!stringsFound.Any(f => f.Value.Equals(stringAddress)))
-						{
-							stringsFound.Add(new KeyValuePair<string, IntPtr>(target.Key, stringAddress));
-							uniqueStringsFound = stringsFound.GroupBy(f => f.Key).Distinct().Count();
-							log(target.Key + ": " + hex(stringAddress));
-						}
+						stringsFound.Add(new KeyValuePair<string, IntPtr>(target.Key, stringAddress));
+						uniqueStringsFound = stringsFound.GroupBy(f => f.Key).Distinct().Count();
+						log(target.Key + ": " + hex(stringAddress));
 					}
 				}
 
@@ -311,7 +308,7 @@ init
 									long variableAddress = (long)game.ReadPointer(variablePointer);
 									var variable = new KeyValuePair<string, IntPtr>(element.Key, (IntPtr)variableAddress);
 
-									if ((variableAddress >= variablePageBase && variableAddress <= variablePageEnd) && !variablesFound.Any(f => f.Equals(variable)))
+									if (variableAddress >= variablePageBase && variableAddress <= variablePageEnd)
 									{
 										// Usually variableAddress = double, but sometimes variableAddress -> address1 -> address2 = string.
 										// Note that address1 and address2 change, but variableAddress does not.
@@ -331,8 +328,11 @@ init
 											log(e + " -> " + hex(f) + " -> " + hex(g) + " = " + qt(h));
 										}
 
-										variablesFound.Add(variable);
-										uniqueVariablesFound = variablesFound.GroupBy(f => f.Key).Distinct().Count();
+										if (!variablesFound.Any(f => f.Equals(variable)))
+										{
+											variablesFound.Add(variable);
+											uniqueVariablesFound = variablesFound.GroupBy(f => f.Key).Distinct().Count();
+										}
 
 										if (fastScan)
 										{
@@ -469,4 +469,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.7.6 26-Mar-2023
+// v0.7.7 26-Mar-2023
