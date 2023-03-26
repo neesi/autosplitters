@@ -360,22 +360,35 @@ init
 
 				if (uniqueVariablesFound == variableTargets.Count)
 				{
-					string frameVariable = "playertime";
-					IntPtr frameAddress = variablesFound.FirstOrDefault(f => f.Key == frameVariable).Value;
-					double frameValue = game.ReadValue<double>(frameAddress);
-
-					if (frameAddress != IntPtr.Zero)
+					bool framesFound = false;
+					foreach (KeyValuePair<string, IntPtr> element in variablesFound)
 					{
-						if (frameValue.ToString().All(Char.IsDigit))
+						string name = element.Key;
+						IntPtr address = element.Value;
+
+						if (name == "playertime")
 						{
-							vars.RoomNumber = new MemoryWatcher<int>(vars.RoomNum);
-							vars.FrameCount = new MemoryWatcher<double>(frameAddress);
-							goto done;
+							double value = game.ReadValue<double>(address);
+							if (value.ToString().All(Char.IsDigit))
+							{
+								if (!framesFound)
+								{
+									vars.Frames = address;
+									framesFound = true;
+								}
+							}
+							else
+							{
+								log("Discarded " + name + ": " + hex(address) + " = <double>" + value);
+							}
 						}
-						else
-						{
-							log("Discarded " + frameVariable + ": " + hex(frameAddress) + " = <double>" + frameValue);
-						}
+					}
+
+					if (framesFound)
+					{
+						vars.RoomNumber = new MemoryWatcher<int>(vars.RoomNum);
+						vars.FrameCount = new MemoryWatcher<double>(vars.Frames);
+						goto done;
 					}
 				}
 			}
@@ -456,4 +469,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.7.5 26-Mar-2023
+// v0.7.6 26-Mar-2023
