@@ -76,17 +76,14 @@ init
 
 	System.Threading.Tasks.Task.Run(async () =>
 	{
-		var pointerTargets = new List<KeyValuePair<string, SigScanTarget>>();
+		var pointerTargets = new Dictionary<string, SigScanTarget>();
 		if (is64bit)
 		{
 			vars.Version = "Full";
 
-			pointerTargets = new List<KeyValuePair<string, SigScanTarget>>
-			{
-				new KeyValuePair<string, SigScanTarget>("RoomNum", new SigScanTarget(7, "CC CC CC 8B D1 8B 0D ?? ?? ?? ?? E9 ?? ?? ?? ?? CC")),
-				new KeyValuePair<string, SigScanTarget>("RoomBase", new SigScanTarget(20, "48 ?? ?? ?? ?? 89 35 ?? ?? ?? ?? 89 35 ?? ?? ?? ?? 48 89 35")),
-				new KeyValuePair<string, SigScanTarget>("VariablePage", new SigScanTarget(4, "C3 48 8B 15 ?? ?? ?? ?? 48 85 D2 0F 85"))
-			};
+			pointerTargets.Add("RoomNum", new SigScanTarget(7, "CC CC CC 8B D1 8B 0D ?? ?? ?? ?? E9 ?? ?? ?? ?? CC"));
+			pointerTargets.Add("RoomBase", new SigScanTarget(20, "48 ?? ?? ?? ?? 89 35 ?? ?? ?? ?? 89 35 ?? ?? ?? ?? 48 89 35"));
+			pointerTargets.Add("VariablePage", new SigScanTarget(4, "C3 48 8B 15 ?? ?? ?? ?? 48 85 D2 0F 85"));
 		}
 		else if (exeSize == 5178368 && winSize == 133467400 && !is64bit)
 		{
@@ -177,17 +174,17 @@ init
 				log("Scanning for pointers..");
 
 				var scanner = new SignatureScanner(game, modules.First().BaseAddress, modules.First().ModuleMemorySize);
-				var pointersFound = new List<KeyValuePair<string, IntPtr>>();
+				var pointersFound = new Dictionary<string, IntPtr>();
 
 				foreach (KeyValuePair<string, SigScanTarget> target in pointerTargets)
 				{
 					target.Value.OnFound = (proc, scan, address) => is64bit ? address + 0x4 + proc.ReadValue<int>(address) : proc.ReadPointer(address);
-					IntPtr result = scanner.Scan(target.Value);
+					IntPtr pointer = scanner.Scan(target.Value);
 
-					if (result != IntPtr.Zero)
+					if (pointer != IntPtr.Zero)
 					{
-						pointersFound.Add(new KeyValuePair<string, IntPtr>(target.Key, result));
-						log(target.Key + ": " + hex(result) + " = " + hex(game.ReadPointer(result)));
+						pointersFound.Add(target.Key, pointer);
+						log(target.Key + ": " + hex(pointer) + " = " + hex(game.ReadPointer(pointer)));
 					}
 					else
 					{
@@ -197,11 +194,11 @@ init
 
 				log("pointersFound: " + pointersFound.Count + "/" + pointerTargets.Count);
 
-				if (pointersFound.Count == pointerTargets.Count && pointerTargets.Count > 0)
+				if (pointersFound.Count == pointerTargets.Count)
 				{
-					vars.RoomNum = pointersFound.FirstOrDefault(f => f.Key == "RoomNum").Value;
-					vars.RoomBase = pointersFound.FirstOrDefault(f => f.Key == "RoomBase").Value;
-					vars.VariablePage = pointersFound.FirstOrDefault(f => f.Key == "VariablePage").Value;
+					vars.RoomNum = pointersFound["RoomNum"];
+					vars.RoomBase = pointersFound["RoomBase"];
+					vars.VariablePage = pointersFound["VariablePage"];
 					vars.RoomName();
 
 					if (current.RoomName != "")
@@ -296,13 +293,13 @@ init
 				foreach (KeyValuePair<string, SigScanTarget> target in variableTargets)
 				{
 					IEnumerable<IntPtr> results = scanner.ScanAll(target.Value);
-					foreach (IntPtr result in results)
+					foreach (IntPtr stringAddress in results)
 					{
-						if (!stringsFound.Any(f => f.Value.Equals(result)))
+						if (!stringsFound.Any(f => f.Value.Equals(stringAddress)))
 						{
-							stringsFound.Add(new KeyValuePair<string, IntPtr>(target.Key, result));
+							stringsFound.Add(new KeyValuePair<string, IntPtr>(target.Key, stringAddress));
 							uniqueStringsFound = stringsFound.GroupBy(f => f.Key).Distinct().Count();
-							log(target.Key + ": " + hex(result));
+							log(target.Key + ": " + hex(stringAddress));
 						}
 					}
 				}
@@ -320,7 +317,7 @@ init
 			}
 
 			log("uniqueStringsFound: " + uniqueStringsFound + "/" + variableTargets.Count);
-			log("variablePageAddress: " + hex(variablePageAddress) + ", " + hex(variablePageBase) + " - " + hex(variablePageEnd) + ", size: " + hex(variablePageSize));
+			log("variablePageAddress: " + hex(variablePageAddress) + ", " + hex(variablePageEnd) + " - " + hex(variablePageBase) + " = " + hex(variablePageSize));
 
 			if (uniqueStringsFound == variableTargets.Count && variableTargets.Count > 0 && variablePageBase > 0)
 			{
@@ -352,12 +349,12 @@ init
 
 						byte[] a = BitConverter.GetBytes(vars.StringAddress);
 						string b = BitConverter.ToString(a).Replace("-", " ");
-						var stringPointer = new SigScanTarget(pointerSize - 4, alignment + b);
-						IEnumerable<IntPtr> resultsA = scannerA.ScanAll(stringPointer);
+						var targetA = new SigScanTarget(pointerSize - 4, alignment + b);
+						IEnumerable<IntPtr> resultsA = scannerA.ScanAll(targetA);
 
-						foreach (IntPtr resultA in resultsA)
+						foreach (IntPtr stringPointer in resultsA)
 						{
-							int variableIdentifier = game.ReadValue<int>(resultA - pointerSize);
+							int variableIdentifier = game.ReadValue<int>(stringPointer - pointerSize);
 							if (variableIdentifier <= 0x186A0)
 							{
 								continue;
@@ -365,16 +362,16 @@ init
 
 							byte[] c = BitConverter.GetBytes(variableIdentifier);
 							string d = BitConverter.ToString(c).Replace("-", " ");
-							var variablePointer = new SigScanTarget(-4, alignment + d);
+							var targetB = new SigScanTarget(-4, alignment + d);
 
 							foreach (var pageB in game.MemoryPages())
 							{
 								var scannerB = new SignatureScanner(game, pageB.BaseAddress, (int)pageB.RegionSize);
-								IEnumerable<IntPtr> resultsB = scannerB.ScanAll(variablePointer);
+								IEnumerable<IntPtr> resultsB = scannerB.ScanAll(targetB);
 
-								foreach (IntPtr resultB in resultsB)
+								foreach (IntPtr variablePointer in resultsB)
 								{
-									long variableAddress = (long)game.ReadPointer(resultB);
+									long variableAddress = (long)game.ReadPointer(variablePointer);
 									var variable = new KeyValuePair<string, IntPtr>(element.Key, (IntPtr)variableAddress);
 
 									if ((variableAddress >= variablePageBase && variableAddress <= variablePageEnd) && !variablesFound.Any(f => f.Equals(variable)))
@@ -383,16 +380,18 @@ init
 										// Note that address1 and address2 change, but variableAddress does not.
 
 										double value = game.ReadValue<double>((IntPtr)variableAddress);
-										if (value.ToString().All(Char.IsDigit))
+										string e = element.Key + ": " + hex(variableIdentifier) + ", " + hex(variablePointer) + " -> " + hex(variableAddress);
+
+										if (!value.ToString().Any(Char.IsLetter) && value.ToString().Length <= 12)
 										{
-											log(element.Key + ": " + hex(variableAddress) + " = <double>" + value);
+											log(e + " = <double>" + value);
 										}
 										else
 										{
-											IntPtr e = game.ReadPointer((IntPtr)variableAddress);
-											IntPtr f = game.ReadPointer(e);
-											string g = game.ReadString(f, 128) ?? "";
-											log(element.Key + ": " + hex(variableAddress) + " -> " + hex(e) + " -> " + hex(f) + " = " + qt(g));
+											IntPtr f = game.ReadPointer((IntPtr)variableAddress);
+											IntPtr g = game.ReadPointer(f);
+											string h = game.ReadString(g, 128) ?? "";
+											log(e + " -> " + hex(f) + " -> " + hex(g) + " = " + qt(h));
 										}
 
 										variablesFound.Add(variable);
@@ -420,36 +419,26 @@ init
 
 				scan_completed:;
 
-				log("uniqueVariablesFound: " + uniqueVariablesFound + "/" + stringsFound.Count);
+				log("uniqueVariablesFound: " + uniqueVariablesFound + "/" + variableTargets.Count);
 
 				if (uniqueVariablesFound == variableTargets.Count)
 				{
-					bool framesFound = false;
-					foreach (KeyValuePair<string, IntPtr> element in variablesFound)
-					{
-						string name = element.Key;
-						IntPtr address = element.Value;
+					string frameVariable = "playerFrames";
+					IntPtr frameAddress = variablesFound.FirstOrDefault(f => f.Key == frameVariable).Value;
+					double frameValue = game.ReadValue<double>(frameAddress);
 
-						if (name == "playerFrames" && !framesFound)
+					if (frameAddress != IntPtr.Zero)
+					{
+						if (frameValue.ToString().All(Char.IsDigit))
 						{
-							double value = game.ReadValue<double>(address);
-							if (value.ToString().All(Char.IsDigit))
-							{
-								vars.Frames = address;
-								framesFound = true;
-							}
-							else
-							{
-								log("Discarded " + name + ": " + hex(address) + " = <double>" + value);
-							}
+							vars.RoomNumber = new MemoryWatcher<int>(vars.RoomNum);
+							vars.FrameCount = new MemoryWatcher<double>(frameAddress);
+							goto done;
 						}
-					}
-
-					if (framesFound)
-					{
-						vars.RoomNumber = new MemoryWatcher<int>(vars.RoomNum);
-						vars.FrameCount = new MemoryWatcher<double>(vars.Frames);
-						goto done;
+						else
+						{
+							log("Discarded " + frameVariable + ": " + hex(frameAddress) + " = <double>" + frameValue);
+						}
 					}
 				}
 			}
@@ -553,4 +542,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.7.4 09-Mar-2023
+// v0.7.5 26-Mar-2023
