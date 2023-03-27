@@ -56,12 +56,17 @@ init
 	var qt = vars.Qt = (Func<object, string>)(input =>
 	{
 		input = input ?? "";
-		return "\"" + input.ToString() + "\"";
+		if (input.ToString().Contains('\0'))
+		{
+			input = input.ToString().Split('\0')[0];
+		}
+
+		return "\"" + input + "\"";
 	});
 
-	var hex = (Func<object, string>)(input =>
+	var hex = vars.Hex = (Func<object, string>)(input =>
 	{
-		if (input == null || input is string)
+		if (input == null || input is char || input is string)
 		{
 			return "0";
 		}
@@ -228,23 +233,40 @@ init
 					if (!String.IsNullOrWhiteSpace(variable))
 					{
 						variable = System.Text.RegularExpressions.Regex.Replace(variable, @"\s+", "");
-						signature = signature.Replace("\t", "");
-
-						string a = variable + '.';
-						int b = (a.Length / 8) + 1;
-						string c = a.Length % 8 == 0 ? "" : new string('x', (b * 8) - a.Length);
-						string d = a + c + a + c;
-						byte[] e = Encoding.UTF8.GetBytes(d);
-
-						if (String.IsNullOrWhiteSpace(signature))
-						{
-							signature = BitConverter.ToString(e).Replace("-", " ").Replace("2E", "00");
-						}
+						signature = System.Text.RegularExpressions.Regex.Replace(signature, @"\s+", "");
 
 						if (!variableTargets.Any(t => t.Key == variable))
 						{
-							variableTargets.Add(new KeyValuePair<string, SigScanTarget>(variable, new SigScanTarget(offset, signature)));
-							log(variable + ": SigScanTarget(" + offset + ", " + qt(signature) + ") -> " + qt(d));
+							string a = variable + '\0';
+							int b = (a.Length / 8) + 1;
+							string c = a.Length % 8 == 0 ? "" : new string('x', (b * 8) - a.Length);
+							byte[] d = Encoding.UTF8.GetBytes(a + c + a + c);
+
+							if (String.IsNullOrWhiteSpace(signature))
+							{
+								signature = BitConverter.ToString(d).Replace("-", " ");
+							}
+
+							var e = new SigScanTarget(offset, signature);
+							byte[] f = e.Signatures[0].Pattern;
+							var g = new List<byte>();
+
+							for (int index = 0; index < f.Length; index++)
+							{
+								if (f[index] == 0x00)
+								{
+									g.AddRange(new byte[] { 0x5C, 0x30 });
+								}
+								else
+								{
+									g.Add(f[index]);
+								}
+							}
+
+							variableTargets.Add(new KeyValuePair<string, SigScanTarget>(variable, e));
+							string h = BitConverter.ToString(f).Replace("-", " ");
+							string i = Encoding.UTF8.GetString(g.ToArray());
+							log(variable + ": SigScanTarget(" + offset + ", " + qt(h) + ") -> " + qt(i));
 						}
 					}
 				}
@@ -555,4 +577,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.7.7 26-Mar-2023
+// v0.7.8 27-Mar-2023
