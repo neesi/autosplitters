@@ -55,12 +55,7 @@ init
 
 	var qt = vars.Qt = (Func<object, string>)(input =>
 	{
-		input = input ?? "";
-		if (input.ToString().Contains('\0'))
-		{
-			input = input.ToString().Split('\0')[0];
-		}
-
+		input = input == null ? "" : input.ToString().Split('\0')[0];
 		return "\"" + input + "\"";
 	});
 
@@ -577,4 +572,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.7.8 27-Mar-2023
+// v0.7.9 29-Mar-2023
