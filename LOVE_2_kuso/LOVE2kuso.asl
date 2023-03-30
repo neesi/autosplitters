@@ -331,7 +331,7 @@ init
 			}
 
 			log("uniqueStringsFound: " + uniqueStringsFound + "/" + variableTargets.Count);
-			log("variablePageAddress: " + hex(variablePageAddress) + ", " + hex(variablePageEnd) + " - " + hex(variablePageBase) + " = " + hex(variablePageSize));
+			log("variablePageAddress: " + hex(vars.VariablePage) + " = " + hex(variablePageAddress) + ", " + hex(variablePageEnd) + " - " + hex(variablePageBase) + " = " + hex(variablePageSize));
 
 			if (uniqueStringsFound == variableTargets.Count && variableTargets.Count > 0 && variablePageBase > 0)
 			{
@@ -572,4 +572,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.7.9 29-Mar-2023
+// v0.8.0 30-Mar-2023
