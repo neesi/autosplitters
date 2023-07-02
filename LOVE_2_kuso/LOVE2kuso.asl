@@ -61,12 +61,18 @@ init
 
 	var hex = vars.Hex = (Func<object, string>)(input =>
 	{
-		if (input == null || input is char || input is string)
+		if (input != null)
 		{
-			return "0";
+			long number;
+			bool success = long.TryParse(input.ToString(), out number);
+
+			if (success)
+			{
+				return "0x" + number.ToString("X");
+			}
 		}
 
-		return "0x" + Convert.ToInt64(input.ToString()).ToString("X");
+		return "0";
 	});
 
 	log(qt(exePath) + ", exeSize: " + exeSize + ", winSize: " + winSize + ", exeMemorySize: " + hex(exeMemorySize) + ", baseAddress: " + hex(baseAddress) + ", is64bit: " + is64bit);
@@ -572,4 +578,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.8.1 28-May-2023
+// v0.8.2 02-Jul-2023

@@ -58,12 +58,18 @@ init
 
 	var hex = vars.Hex = (Func<object, string>)(input =>
 	{
-		if (input == null || input is char || input is string)
+		if (input != null)
 		{
-			return "0";
+			long number;
+			bool success = long.TryParse(input.ToString(), out number);
+
+			if (success)
+			{
+				return "0x" + number.ToString("X");
+			}
 		}
 
-		return "0x" + Convert.ToInt64(input.ToString()).ToString("X");
+		return "0";
 	});
 
 	log(qt(exePath) + ", exeSize: " + exeSize + ", winSize: " + winSize + ", exeMemorySize: " + hex(exeMemorySize) + ", baseAddress: " + hex(baseAddress) + ", is64bit: " + is64bit);
@@ -82,9 +88,9 @@ init
 		}
 		else
 		{
-			pointerTargets.Add("RoomNum", new SigScanTarget(1, "A1 ?? ?? ?? ?? 50 A3 ?? ?? ?? ?? C7"));
-			pointerTargets.Add("RoomBase", new SigScanTarget(10, "7E ?? 8B 2D ?? ?? ?? ?? 8B 3D ?? ?? ?? ?? 2B EF 3B F3 7D"));
-			pointerTargets.Add("VariablePage", new SigScanTarget(9, "FF 05 ?? ?? ?? ?? 8B 06 A3 ?? ?? ?? ?? 8B"));
+			pointerTargets.Add("RoomNum", new SigScanTarget(8, "56 E8 ?? ?? ?? ?? 8B 0D ?? ?? ?? ?? 83 C4 08 A1 ?? ?? ?? ?? 5F 5E 5B"));
+			pointerTargets.Add("RoomBase", new SigScanTarget(10, "7E ?? 8B 2D ?? ?? ?? ?? 8B 3D ?? ?? ?? ?? 2B EF"));
+			pointerTargets.Add("VariablePage", new SigScanTarget(20, "C7 01 ?? ?? ?? ?? 75 25 C7 05 ?? ?? ?? ?? 00 00 00 00 C7 05"));
 		}
 
 		while (!token.IsCancellationRequested)
@@ -486,4 +492,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.8.2 28-May-2023
+// v0.8.3 02-Jul-2023
