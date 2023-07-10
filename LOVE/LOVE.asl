@@ -151,7 +151,7 @@ init
 						game.Resume();
 					}
 
-					goto done;
+					goto ready;
 				}
 				else
 				{
@@ -266,7 +266,7 @@ init
 			//variableTarget("playerSpawns", 0, "");
 		}
 
-		while (!token.IsCancellationRequested)
+		while (!token.IsCancellationRequested && variableTargets.Count > 0)
 		{
 			log("Scanning for variable strings..");
 
@@ -275,7 +275,7 @@ init
 			// 3. variableIdentifier is next to stringPointer. -4 bytes for 32-bit, -8 bytes for 64-bit.
 			// 4. Scan for instances of the supposed variableIdentifier.
 			// 5. variablePointer is next to variableIdentifier. -4 bytes for 32-bit, -8 bytes for 64-bit.
-			// 6. If variableAddress is in the same page as variablePageAddress, it is potentially the actual variable address.
+			// 6. If variableAddress is in the same page as variablePageAddress or variablePageAddressAlt, it is potentially the actual variable address.
 
 			// fastScan allows only one variablesFound address per variableTarget and skips further scan attempts for that variable.
 			// Each variableTarget should have only one associated variableAddress.
@@ -284,14 +284,22 @@ init
 			bool fastScan = true;
 
 			var stringsFound = new List<KeyValuePair<string, IntPtr>>();
+			var identifiersFound = new List<KeyValuePair<string, int>>();
 			var variablesFound = new List<KeyValuePair<string, IntPtr>>();
 			int uniqueStringsFound = 0;
 			int uniqueVariablesFound = 0;
 
-			long variablePageAddress = (long)game.ReadPointer((IntPtr)vars.VariablePage);
+			long variablePagePointer = (long)game.ReadPointer((IntPtr)vars.VariablePage);
+			long variablePageAddress = (long)game.ReadPointer((IntPtr)variablePagePointer);
 			long variablePageBase = 0;
 			long variablePageEnd = 0;
 			int variablePageSize = 0;
+
+			long variablePagePointerAlt = (long)game.ReadPointer((IntPtr)vars.VariablePage - pointerSize);
+			long variablePageAddressAlt = (long)game.ReadPointer((IntPtr)variablePagePointerAlt);
+			long variablePageBaseAlt = 0;
+			long variablePageEndAlt = 0;
+			int variablePageSizeAlt = 0;
 
 			foreach (var page in game.MemoryPages())
 			{
@@ -317,12 +325,24 @@ init
 					variablePageEnd = pageEnd;
 					variablePageSize = pageSize;
 				}
+
+				if (variablePageAddressAlt >= pageBase && variablePageAddressAlt <= pageEnd)
+				{
+					variablePageBaseAlt = pageBase;
+					variablePageEndAlt = pageEnd;
+					variablePageSizeAlt = pageSize;
+				}
 			}
 
 			log("uniqueStringsFound: " + uniqueStringsFound + "/" + variableTargets.Count);
-			log("variablePageAddress: " + hex(vars.VariablePage) + " = " + hex(variablePageAddress) + ", " + hex(variablePageEnd) + " - " + hex(variablePageBase) + " = " + hex(variablePageSize));
 
-			if (uniqueStringsFound == variableTargets.Count && variableTargets.Count > 0 && variablePageBase > 0)
+			log("variablePageAddress: " + hex(vars.VariablePage) + " -> " + hex(variablePagePointer) + " = " + hex(variablePageAddress) +
+			    ", " + hex(variablePageEnd) + " - " + hex(variablePageBase) + " = " + hex(variablePageSize));
+
+			log("variablePageAddressAlt: " + hex(vars.VariablePage - pointerSize) + " -> " + hex(variablePagePointerAlt) + " = " + hex(variablePageAddressAlt) +
+			    ", " + hex(variablePageEndAlt) + " - " + hex(variablePageBaseAlt) + " = " + hex(variablePageSizeAlt));
+
+			if (uniqueStringsFound == variableTargets.Count && variablePageBase > 0)
 			{
 				log("Scanning for variable addresses..");
 
@@ -358,10 +378,14 @@ init
 						foreach (IntPtr stringPointer in resultsA)
 						{
 							int variableIdentifier = game.ReadValue<int>(stringPointer - pointerSize);
-							if (variableIdentifier <= 0x186A0)
+							var identifier = new KeyValuePair<string, int>(element.Key, variableIdentifier);
+
+							if (variableIdentifier <= 0x186A0 || identifiersFound.Any(f => f.Equals(identifier)))
 							{
 								continue;
 							}
+
+							identifiersFound.Add(identifier);
 
 							byte[] c = BitConverter.GetBytes(variableIdentifier);
 							string d = BitConverter.ToString(c).Replace("-", " ");
@@ -377,10 +401,11 @@ init
 									long variableAddress = (long)game.ReadPointer(variablePointer);
 									var variable = new KeyValuePair<string, IntPtr>(element.Key, (IntPtr)variableAddress);
 
-									if (variableAddress >= variablePageBase && variableAddress <= variablePageEnd)
+									if (variableAddress >= variablePageBase && variableAddress <= variablePageEnd ||
+									    variablePageBaseAlt > 0 && variableAddress >= variablePageBaseAlt && variableAddress <= variablePageEndAlt)
 									{
 										// Usually variableAddress = double, but sometimes variableAddress -> address1 -> address2 = string.
-										// Note that address1 and address2 change, but variableAddress does not.
+										// Note that address1 and address2 may change while the game is running, variableAddress does not.
 
 										double value = game.ReadValue<double>((IntPtr)variableAddress);
 										string e = element.Key + ": " + hex(variableIdentifier) + ", " + hex(variablePointer) + " -> " + hex(variableAddress);
@@ -457,7 +482,7 @@ init
 					{
 						vars.RoomNumber = new MemoryWatcher<int>(vars.RoomNum);
 						vars.FrameCount = new MemoryWatcher<double>(vars.Frames);
-						goto done;
+						goto ready;
 					}
 				}
 			}
@@ -467,7 +492,7 @@ init
 
 		goto task_end;
 
-		done:;
+		ready:;
 
 		if (settings["gameTime"])
 		{
@@ -476,9 +501,10 @@ init
 
 		vars.RoomName();
 		vars.Ready = true;
-		log("All done.");
 
 		task_end:;
+
+		log("Task end.");
 	});
 }
 
@@ -538,4 +564,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.8.2 02-Jul-2023
+// v0.8.3 10-Jul-2023
