@@ -289,14 +289,14 @@ init
 			int uniqueStringsFound = 0;
 			int uniqueVariablesFound = 0;
 
-			long variablePagePointer = (long)game.ReadPointer((IntPtr)vars.VariablePage);
-			long variablePageAddress = (long)game.ReadPointer((IntPtr)variablePagePointer);
+			IntPtr variablePagePointer = game.ReadPointer((IntPtr)vars.VariablePage);
+			long variablePageAddress = (long)game.ReadPointer(variablePagePointer);
 			long variablePageBase = 0;
 			long variablePageEnd = 0;
 			int variablePageSize = 0;
 
-			long variablePagePointerAlt = (long)game.ReadPointer((IntPtr)vars.VariablePage - pointerSize);
-			long variablePageAddressAlt = (long)game.ReadPointer((IntPtr)variablePagePointerAlt);
+			IntPtr variablePagePointerAlt = game.ReadPointer((IntPtr)vars.VariablePage - pointerSize);
+			long variablePageAddressAlt = (long)game.ReadPointer(variablePagePointerAlt);
 			long variablePageBaseAlt = 0;
 			long variablePageEndAlt = 0;
 			int variablePageSizeAlt = 0;
@@ -389,7 +389,7 @@ init
 
 							byte[] c = BitConverter.GetBytes(variableIdentifier);
 							string d = BitConverter.ToString(c).Replace("-", " ");
-							var targetB = new SigScanTarget(-4, alignment + d);
+							var targetB = new SigScanTarget(-pointerSize, d);
 
 							foreach (var pageB in game.MemoryPages())
 							{
@@ -564,4 +564,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.8.3 10-Jul-2023
+// v0.8.4 13-Jul-2023
