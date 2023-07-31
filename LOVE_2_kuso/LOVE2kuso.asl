@@ -366,7 +366,7 @@ init
 				byte[] a = BitConverter.GetBytes(variableIdentifier);
 				string b = BitConverter.ToString(a).Replace("-", " ");
 
-				int c = 0x1 - (0x61C8864F * variableIdentifier) & 0x7FFFFFFF;
+				int c = (0x1 - (0x61C8864F * variableIdentifier)) & 0x7FFFFFFF;
 				byte[] d = BitConverter.GetBytes(c);
 				string e = BitConverter.ToString(d).Replace("-", " ");
 
@@ -574,4 +574,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.9.0 31-Jul-2023
+// v0.9.1 31-Jul-2023
