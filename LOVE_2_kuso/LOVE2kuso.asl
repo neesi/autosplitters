@@ -229,8 +229,8 @@ init
 				if (game.ReadBytes(variableBase, pointerSize) != null && variableCount > 0 && variableCount <= 0xFFFFF)
 				{
 					log("VariableNames: " + hex(pointer) + " = " + hex(variableBase) + ", " + hex(variableCount));
-					int variableIndex = 0;
 
+					int variableIndex = 0;
 					while (variableIndex <= variableCount)
 					{
 						IntPtr stringAddress = game.ReadPointer(variableBase + (variableIndex * pointerSize));
@@ -238,9 +238,9 @@ init
 
 						if (!String.IsNullOrWhiteSpace(variableName) && variableStrings.Contains(variableName) && !variableStringsFound.Any(x => x.Item1 == variableName))
 						{
-							variableStringsFound.Add(Tuple.Create(variableName, variableIndex));
 							log(variableName + ": " + hex(stringAddress) + ", " + hex(variableIndex));
 
+							variableStringsFound.Add(Tuple.Create(variableName, variableIndex));
 							if (variableStringsFound.Count == variableStrings.Count())
 							{
 								goto variable_strings_found;
@@ -331,7 +331,7 @@ init
 						int identifier = game.ReadValue<int>(variablePointer + pointerSize);
 						int extension = game.ReadValue<int>(variablePointer + pointerSize + 0x4);
 
-						// runtime 2.2.1.287 (05-Dec-2018) ... runtime 2.2.5.378 (18-Dec-2019)
+						// runtime 2.2.1.287 (05-Dec-2018) ... 2.2.5.378 (18-Dec-2019)
 
 						int variableIdentifierOld = elementB.Item2;
 						int identifierExtensionOld = (0x1 - (0x61C8864F * variableIdentifierOld)) & 0x7FFFFFFF;
@@ -341,7 +341,7 @@ init
 						int identifierOld = game.ReadValue<int>(variablePointerOld + pointerSize);
 						int extensionOld = game.ReadValue<int>(variablePointerOld + pointerSize + 0x4);
 
-						// runtime 2.1.4.218 (17-May-2018) ... runtime 2.2.0.261 (09-Oct-2018)
+						// runtime 2.1.4.218 (17-May-2018) ... 2.2.0.261 (09-Oct-2018)
 
 						int variableIdentifierOlder = elementB.Item2;
 						int identifierExtensionOlder = variableIdentifierOlder + 0x1;
@@ -352,16 +352,16 @@ init
 						int extensionOlder = game.ReadValue<int>(variablePointerOlder + pointerSize);
 
 						IntPtr variableAddress = IntPtr.Zero;
-						if (identifier == variableIdentifier && extension == identifierExtension)
+						if (variableIdentifier == identifier && identifierExtension == extension)
 						{
 							variableAddress = game.ReadPointer(variablePointer);
 						}
-						else if (identifierOld == variableIdentifierOld && extensionOld == identifierExtensionOld && extensionOld > 0)
+						else if (variableIdentifierOld == identifierOld && identifierExtensionOld == extensionOld)
 						{
 							variablePointer = variablePointerOld;
 							variableAddress = game.ReadPointer(variablePointer);
 						}
-						else if (identifierOlder == variableIdentifierOlder && extensionOlder == identifierExtensionOlder)
+						else if (variableIdentifierOlder == identifierOlder && identifierExtensionOlder == extensionOlder)
 						{
 							variablePointer = variablePointerOlder;
 							variableAddress = game.ReadPointer(variablePointer);
@@ -539,4 +539,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.9.3 11-Sep-2023
+// v0.9.4 15-Sep-2023
