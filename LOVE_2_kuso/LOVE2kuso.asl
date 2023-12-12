@@ -97,7 +97,7 @@ init
 					IntPtr roomNameAddress = game.ReadPointer(roomBaseAddress + (roomNumber * pointerSize));
 					string roomName = game.ReadString(roomNameAddress, 256) ?? "";
 
-					if (System.Text.RegularExpressions.Regex.IsMatch(roomName, @"^[a-zA-Z_]+[a-zA-Z0-9_]+$"))
+					if (System.Text.RegularExpressions.Regex.IsMatch(roomName, @"^[a-zA-Z_]+[a-zA-Z0-9_]*$"))
 					{
 						current.RoomName = roomName.ToLower();
 						if (!vars.Ready)
@@ -256,7 +256,7 @@ init
 					IntPtr variableNameAddress = game.ReadPointer(variableBaseAddress + (variableIndex * pointerSize));
 					string variableName = game.ReadString(variableNameAddress, 256);
 
-					if (!String.IsNullOrWhiteSpace(variableName) && variableNames.Contains(variableName))
+					if (!string.IsNullOrWhiteSpace(variableName) && variableNames.Contains(variableName))
 					{
 						string duplicate = "";
 						if (variableNamesFound.Any(x => x.Item1 == variableName))
@@ -288,7 +288,7 @@ init
 			}
 
 			await System.Threading.Tasks.Task.Delay(2000, token);
-			continue;
+			goto scan_start;
 
 			variable_names_found:;
 			vars.VariableNamesFound = variableNamesFound;
@@ -351,6 +351,7 @@ init
 
 			log("Pointer base not found.");
 			await System.Threading.Tasks.Task.Delay(2000, token);
+			goto scan_start;
 		}
 
 		if (!token.IsCancellationRequested)
@@ -442,7 +443,7 @@ init
 							// Note that stringPointer and stringAddress may change while the game is running, variableAddress does not.
 
 							double value = game.ReadValue<double>(variableAddress);
-							if (!value.ToString().Any(Char.IsLetter) && value.ToString().Length <= 12)
+							if (!value.ToString().Any(char.IsLetter) && value.ToString().Length <= 12)
 							{
 								log(qt(elementB.Item1) + " -> " + hex(variablePointer) + " -> " + hex(variableAddress) + " = <double>" + value + gameMakerGroup);
 							}
@@ -549,7 +550,7 @@ init
 					foreach (Tuple<IntPtr, int> element in tempPathResults)
 					{
 						string tempPath = new DeepPointer(element.Item1, 0x0, 0x0).DerefString(game, 4);
-						if (!String.IsNullOrWhiteSpace(tempPath) && tempPath.Length == 4)
+						if (!string.IsNullOrWhiteSpace(tempPath) && tempPath.Length == 4)
 						{
 							foreach (IntPtr address in scanner.ScanAll(functionCalls))
 							{
@@ -684,4 +685,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.9.5 11-Dec-2023
+// v0.9.6 12-Dec-2023
