@@ -4,7 +4,6 @@ state("LOVE3_Demo") {}
 startup
 {
 	settings.Add("gameTime", true, "Automatically change timing method to Game Time");
-	settings.SetToolTip("gameTime", "Game Time stays in sync with in-game time");
 
 	vars.ActionRooms = new List<string>
 	{
@@ -141,7 +140,7 @@ init
 
 		foreach (KeyValuePair<string, SigScanTarget> target in targets.Where(x => !x.Key.StartsWith("VariableNames") && x.Key != "GlobalData"))
 		{
-			target.Value.OnFound = (proc, scan, address) => is64bit ? address + 0x4 + proc.ReadValue<int>(address) : proc.ReadPointer(address);
+			target.Value.OnFound = (proc, scanner, address) => is64bit ? address + 0x4 + proc.ReadValue<int>(address) : proc.ReadPointer(address);
 		}
 
 		scan_start:;
@@ -542,4 +541,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.9.6 12-Dec-2023
+// v0.9.7 14-Dec-2023

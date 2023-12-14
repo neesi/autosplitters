@@ -5,7 +5,6 @@ startup
 	settings.Add("gameTime", true, "Automatically change timing method to Game Time");
 	settings.Add("patchLowFPS", false, "Make the game run at full intended FPS");
 	settings.Add("patchTempBug", false, "Stop the game from deleting %TEMP% folder");
-	settings.SetToolTip("gameTime", "Game Time stays in sync with in-game time");
 	settings.SetToolTip("patchLowFPS", "Affects all versions of kuso Demo, and old versions of kuso Full");
 	settings.SetToolTip("patchTempBug", "Affects all versions of kuso Demo, and the first version of kuso Full");
 
@@ -151,7 +150,7 @@ init
 
 		foreach (KeyValuePair<string, SigScanTarget> target in targets.Where(x => !x.Key.StartsWith("VariableNames") && x.Key != "GlobalData"))
 		{
-			target.Value.OnFound = (proc, scan, address) => is64bit ? address + 0x4 + proc.ReadValue<int>(address) : proc.ReadPointer(address);
+			target.Value.OnFound = (proc, scanner, address) => is64bit ? address + 0x4 + proc.ReadValue<int>(address) : proc.ReadPointer(address);
 		}
 
 		scan_start:;
@@ -502,9 +501,9 @@ init
 				if (value != null)
 				{
 					int sleepMarginNewValue = 200;
-					int sleepMarginPreviousValue = BitConverter.ToInt32(value, 0);
+					int sleepMarginOldValue = BitConverter.ToInt32(value, 0);
 					game.WriteBytes(sleepMarginAddress, BitConverter.GetBytes(sleepMarginNewValue));
-					log("Sleep margin patched. " + hex(sleepMarginAddress) + " = <int>" + sleepMarginPreviousValue + " -> " + sleepMarginNewValue);
+					log("Sleep margin patched. " + hex(sleepMarginAddress) + " = <int>" + sleepMarginOldValue + " -> " + sleepMarginNewValue);
 				}
 				else
 				{
@@ -534,17 +533,17 @@ init
 					var scanner = new SignatureScanner(game, modules.First().BaseAddress, modules.First().ModuleMemorySize);
 					SigScanTarget tempPathGameMaker14 = new SigScanTarget(2, "CC A1 ?? ?? ?? ?? 50 E8 ?? ?? FF FF 59 C3 CC");
 					SigScanTarget tempPathGameMaker2 = new SigScanTarget(19, "C3 5F 5E 5B C7 44 24 04 ?? ?? ?? ?? E9 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? ?? C3");
-					SigScanTarget functionCalls = new SigScanTarget(20, "E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8");
+					SigScanTarget functionCalls = new SigScanTarget(21, "E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8");
 
 					var tempPathResults = new List<Tuple<IntPtr, int>>();
 					foreach (IntPtr address in scanner.ScanAll(tempPathGameMaker14))
 					{
-						tempPathResults.Add(Tuple.Create(address, 1));
+						tempPathResults.Add(Tuple.Create(address, 0x1));
 					}
 
 					foreach (IntPtr address in scanner.ScanAll(tempPathGameMaker2))
 					{
-						tempPathResults.Add(Tuple.Create(address, 2));
+						tempPathResults.Add(Tuple.Create(address, 0x2));
 					}
 
 					foreach (Tuple<IntPtr, int> element in tempPathResults)
@@ -554,14 +553,14 @@ init
 						{
 							foreach (IntPtr address in scanner.ScanAll(functionCalls))
 							{
-								byte[] relativeFunctionPointer = game.ReadBytes(address + 1, 4);
-								byte[] relativeFunctionAddress = BitConverter.GetBytes((int)element.Item1 - element.Item2 - (int)address - 5);
+								IntPtr calleeAddress = address + 0x4 + game.ReadValue<int>(address);
+								IntPtr functionAddress = element.Item1 - element.Item2;
 
-								if (relativeFunctionPointer.SequenceEqual(relativeFunctionAddress))
+								if (calleeAddress.Equals(functionAddress))
 								{
 									byte[] nops = new byte[] { 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
-									game.WriteBytes(element.Item1 - element.Item2, nops);
-									log("%TEMP% bug patched. CALL: " + hex(address));
+									game.WriteBytes(functionAddress, nops);
+									log("%TEMP% bug patched. CALL: " + hex(address - 0x1));
 									goto temp_bug_patched;
 								}
 							}
@@ -685,4 +684,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.9.6 12-Dec-2023
+// v0.9.7 14-Dec-2023

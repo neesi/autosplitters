@@ -1,40 +1,38 @@
-<br>
-
-> **Note**
->
-> - The splitter now patches the `%TEMP%` bug and stops kuso Demo from attempting to delete your Temp folder.
-> - The patch is ***temporary*** - it does not edit any files. You have to load the splitter every time you run the game.
-> - You should still create the `!!!!!!!!!!!!!!!!!!!!!!!!` folder as described below, to protect `%TEMP%` even without LiveSplit.
-
-<br>
-
-## LOVE 2: kuso (Demo) breaks all Auto Splitters
+## LOVE 2: kuso (Demo) breaks all auto splitters
 
 ### Bug
 
-- When exiting ***kuso Demo***, it attempts to recursively delete the contents of `%TEMP%` folder.<br>
-If successful, it deletes the empty Temp folder - usually `%LOCALAPPDATA%\Temp`, `C:\Users\name\AppData\Local\Temp`.
+When exiting kuso Demo, it attempts to recursively delete the contents of `%TEMP%` folder.<br>
+If successful, it deletes the empty Temp folder - usually `%LOCALAPPDATA%\Temp`, `C:\Users\name\AppData\Local\Temp`.\*
 
-- LiveSplit cannot load auto splitters without the ***Temp*** folder, so you have to stop kuso Demo from deleting it.
+LiveSplit cannot load auto splitters without the Temp folder, so you have to stop kuso Demo from deleting it.
 
-### Workaround
+If the Temp folder is already gone, create it manually or reboot Windows, then restart LiveSplit.
 
-1. If the Temp folder is already gone, create it manually or reboot Windows.
+### Workaround #1
 
-2. Make a folder called `!!!!!!!!!!!!!!!!!!!!!!!!` ***inside*** the Temp folder. Yes, just a bunch of exclamation points.\*
+Patch the bug by enabling `Stop the game from deleting %TEMP% folder` splitter setting. It is disabled by default.<br>
+The patch is temporary - it does not edit any files. You have to re-apply the patch every time you run the game.
 
-3. *Right-click* the `!!!!!!!!!!!!!!!!!!!!!!!!` folder -> *Properties* and follow the steps shown in this image (assuming you're an admin).
+You should still create the `!!!!!!!!!!!!!!!!!!!!!!!!` folder as described below, to protect `%TEMP%` even without LiveSplit.
+
+### Workaround #2
+
+1. Make a folder called `!!!!!!!!!!!!!!!!!!!!!!!!` inside the Temp folder. Yes, just a bunch of exclamation points.\*\*
+
+2. **Right-click** the `!!!!!!!!!!!!!!!!!!!!!!!!` folder -> **Properties** and follow the steps shown in this image (assuming you're an admin).
 
 ![folder permissions](./permissions.png)
 
-4. Try to delete the `!!!!!!!!!!!!!!!!!!!!!!!!` folder. You shouldn't be able to.
+3. Try to delete the `!!!!!!!!!!!!!!!!!!!!!!!!` folder. You shouldn't be able to.
 
-5. Note that the `!!!!!!!!!!!!!!!!!!!!!!!!` folder might still get deleted when updating Windows, for example.
-
-6. Restart LiveSplit and load the splitter.
+4. Note that the `!!!!!!!!!!!!!!!!!!!!!!!!` folder might still get deleted when updating Windows, for example.
 
 <br>
 
-\**kuso Demo reads the contents of the Temp folder in a specific order. Folders first, exclamation point first.<br>
-By using many exclamation points you pretty much ensure that it'll be the first thing the game reads.<br>
-After the first failed attempt to delete something, it'll give up and leave rest of the folders / files alone.*
+\**This was actually a GameMaker bug, not an exclusive kuso Demo bug. It was fixed a long time ago.*
+
+<br>
+
+\*\**kuso Demo reads the contents of the Temp folder in a specific order. Folders first, exclamation point first.<br>
+After the first failed deletion attempt, the game will leave rest of the folders/files alone, and exit.*

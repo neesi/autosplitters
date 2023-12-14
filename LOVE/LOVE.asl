@@ -4,7 +4,6 @@ startup
 {
 	settings.Add("gameTime", true, "Automatically change timing method to Game Time");
 	settings.Add("patchLowFPS", false, "Make the game run at full intended FPS");
-	settings.SetToolTip("gameTime", "Game Time stays in sync with in-game time");
 	settings.SetToolTip("patchLowFPS", "Affects old versions of LOVE");
 
 	vars.ActionRooms = new List<string>
@@ -145,7 +144,7 @@ init
 
 		foreach (KeyValuePair<string, SigScanTarget> target in targets.Where(x => !x.Key.StartsWith("VariableNames") && x.Key != "GlobalData"))
 		{
-			target.Value.OnFound = (proc, scan, address) => is64bit ? address + 0x4 + proc.ReadValue<int>(address) : proc.ReadPointer(address);
+			target.Value.OnFound = (proc, scanner, address) => is64bit ? address + 0x4 + proc.ReadValue<int>(address) : proc.ReadPointer(address);
 		}
 
 		scan_start:;
@@ -496,9 +495,9 @@ init
 				if (value != null)
 				{
 					int sleepMarginNewValue = 200;
-					int sleepMarginPreviousValue = BitConverter.ToInt32(value, 0);
+					int sleepMarginOldValue = BitConverter.ToInt32(value, 0);
 					game.WriteBytes(sleepMarginAddress, BitConverter.GetBytes(sleepMarginNewValue));
-					log("Sleep margin patched. " + hex(sleepMarginAddress) + " = <int>" + sleepMarginPreviousValue + " -> " + sleepMarginNewValue);
+					log("Sleep margin patched. " + hex(sleepMarginAddress) + " = <int>" + sleepMarginOldValue + " -> " + sleepMarginNewValue);
 				}
 				else
 				{
@@ -585,4 +584,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.9.6 12-Dec-2023
+// v0.9.7 14-Dec-2023
