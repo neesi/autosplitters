@@ -30,7 +30,7 @@ You should still create the `!!!!!!!!!!!!!!!!!!!!!!!!` folder as described below
 
 <br>
 
-\**This was actually a GameMaker bug, not an exclusive kuso Demo bug. It was fixed a long time ago.*
+\**This GameMaker bug was fixed after kuso Demo was released, but the game hasn't been updated so the bug remains.*
 
 <br>
 

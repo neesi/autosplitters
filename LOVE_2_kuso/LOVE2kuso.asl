@@ -43,8 +43,6 @@ init
 		throw;
 	}
 
-	IntPtr baseAddress = modules.First().BaseAddress;
-	long exeMemorySize = modules.First().ModuleMemorySize;
 	bool is64bit = game.Is64Bit();
 	int pointerSize = is64bit ? 8 : 4;
 
@@ -60,7 +58,7 @@ init
 
 	var qt = vars.Qt = (Func<object, string>)(input =>
 	{
-		input = input == null ? "" : input.ToString().Split('\0')[0];
+		input = input != null ? input.ToString().Split('\0')[0] : "";
 		return "\"" + input + "\"";
 	});
 
@@ -80,43 +78,6 @@ init
 		return "0";
 	});
 
-	vars.RoomName = (Action)(() =>
-	{
-		try
-		{
-			current.RoomName = "";
-			IntPtr roomBaseAddress = game.ReadPointer((IntPtr)vars.RoomBaseElement.Item2);
-
-			if (roomBaseAddress != IntPtr.Zero)
-			{
-				byte[] number = game.ReadBytes((IntPtr)vars.RoomNumberAddress, 4);
-				if (number != null)
-				{
-					int roomNumber = BitConverter.ToInt32(number, 0);
-					IntPtr roomNameAddress = game.ReadPointer(roomBaseAddress + (roomNumber * pointerSize));
-					string roomName = game.ReadString(roomNameAddress, 256) ?? "";
-
-					if (System.Text.RegularExpressions.Regex.IsMatch(roomName, @"^[a-zA-Z_]+[a-zA-Z0-9_]*$"))
-					{
-						current.RoomName = roomName.ToLower();
-						if (!vars.Ready)
-						{
-							log("RoomNumber: " + hex(vars.RoomNumberAddress) + " = " + hex(roomNumber));
-							log(vars.RoomBaseElement.Item1 + ": " + hex(vars.RoomBaseElement.Item2) + " = " + hex(roomBaseAddress));
-							log(hex(roomBaseAddress) + " + (" + hex(roomNumber) + " * " + hex(pointerSize) + ") -> " + hex(roomNameAddress) + " = " + qt(current.RoomName));
-						}
-					}
-				}
-			}
-		}
-		catch
-		{
-		}
-	});
-
-	log(qt(exePath));
-	log("exeSize: " + exeSize + ", winSize: " + winSize + ", exeMemorySize: " + hex(exeMemorySize) + ", baseAddress: " + hex(baseAddress) + ", is64bit: " + is64bit);
-
 	vars.CancelSource = new CancellationTokenSource();
 	CancellationToken token = vars.CancelSource.Token;
 
@@ -128,282 +89,340 @@ init
 		// Tested on stable/LTS, VM/YYC 32-bit/64-bit (Windows only), excluding the earliest GameMaker Studio 2 runtimes.
 		// Oldest GMS2 runtime I have found/tested is 2.0.6.96 (16-May-2017), but the first stable GMS2 IDE is 2.0.5.76 (07-Mar-2017).
 
-		var targets = new Dictionary<string, SigScanTarget>();
+		string[] variableTargets = { "playerFrames", /* "gameMode", "playerSpawns" */ };
+
+		var signatureTargets = new Dictionary<string, SigScanTarget>();
 		if (is64bit)
 		{
-			targets.Add("RoomNumber", new SigScanTarget(6, "48 ?? ?? ?? 3B 35 ?? ?? ?? ?? 41 ?? ?? ?? 49 ?? ?? E8 ?? ?? ?? ?? FF"));
-			targets.Add("RoomBase", new SigScanTarget(18, "84 C9 ?? F2 ?? ?? ?? ?? 8D 1C C5 00 00 00 00 ?? 8B"));
-			targets.Add("VariableNames", new SigScanTarget(15, "3B 35 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 8B 1C E8"));
-			targets.Add("GlobalData", new SigScanTarget(20, "BA FF FF FF 00 E8 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? 48"));
-			targets.Add("SleepMargin", new SigScanTarget(10, "48 8B CE E8 ?? ?? ?? ?? 89 05 ?? ?? ?? ?? EB 2C 48 8D 15 ?? ?? ?? ?? 48 8B ?? E8"));
+			signatureTargets.Add("RoomNumber", new SigScanTarget(6, "48 ?? ?? ?? 3B 35 ?? ?? ?? ?? 41 ?? ?? ?? 49 ?? ?? E8 ?? ?? ?? ?? FF"));
+			signatureTargets.Add("RoomBase", new SigScanTarget(18, "84 C9 ?? F2 ?? ?? ?? ?? 8D 1C C5 00 00 00 00 ?? 8B"));
+			signatureTargets.Add("VariableNames", new SigScanTarget(15, "3B 35 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 8B 1C E8"));
+			signatureTargets.Add("GlobalData", new SigScanTarget(13, "BA FF FF FF 00 E8 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? 48"));
+			signatureTargets.Add("SleepMargin", new SigScanTarget(10, "48 8B CE E8 ?? ?? ?? ?? 89 05 ?? ?? ?? ?? EB 2C 48 8D 15 ?? ?? ?? ?? 48 8B ?? E8"));
 		}
 		else
 		{
-			targets.Add("RoomNumber", new SigScanTarget(7, "E8 ?? ?? ?? ?? 8B 0D ?? ?? ?? ?? 3B C8 75 1A 6A 01 68 ?? ?? ?? ?? E8"));
-			targets.Add("RoomBase", new SigScanTarget(11, "4A 8B 41 FC 89 01 ?? ?? ?? ?? A1 ?? ?? ?? ?? 68 ?? ?? ?? ?? ?? ?? ?? E8"));
-			targets.Add("RoomBaseOld", new SigScanTarget(13, "90 8A ?? 88 ?? ?? 40 84 C9 75 F6 8B 0D ?? ?? ?? ?? 8B ?? ?? 85 C0")); // GMS IDE 1.4.1760 ... 1.4.9999 VM/YYC
-			targets.Add("VariableNames", new SigScanTarget(1, "A3 ?? ?? ?? ?? C7 05 ?? ?? ?? ?? 08 00 00 00 E8 ?? ?? ?? ?? 83 C4 18 C3 CC"));
-			targets.Add("VariableNamesOld", new SigScanTarget(14, "68 ?? ?? ?? ?? 8D 04 ?? 00 00 00 00 50 68 ?? ?? ?? ?? E8 ?? ?? ?? ?? 89 35")); // GMS IDE 1.4.1760, 1.4.1763 VM
-			targets.Add("GlobalData", new SigScanTarget(4, "55 56 8B 35 ?? ?? ?? ?? ?? ?? ?? 85 F6 0F 84 ?? 00 00 00"));
-			targets.Add("SleepMargin", new SigScanTarget(11, "8B ?? E8 ?? ?? ?? ?? 83 C4 0C A3 ?? ?? ?? ?? C6 05 ?? ?? ?? ?? 01 E9 ?? ?? ?? ?? B9"));
+			signatureTargets.Add("RoomNumber", new SigScanTarget(7, "E8 ?? ?? ?? ?? 8B 0D ?? ?? ?? ?? 3B C8 75 1A 6A 01 68 ?? ?? ?? ?? E8"));
+			signatureTargets.Add("RoomBase", new SigScanTarget(11, "4A 8B 41 FC 89 01 ?? ?? ?? ?? A1 ?? ?? ?? ?? 68 ?? ?? ?? ?? ?? ?? ?? E8"));
+			signatureTargets.Add("RoomBaseOld", new SigScanTarget(13, "90 8A ?? 88 ?? ?? 40 84 C9 75 F6 8B 0D ?? ?? ?? ?? 8B ?? ?? 85 C0")); // GMS IDE 1.4.1760 ... 1.4.9999 VM/YYC
+			signatureTargets.Add("VariableNames", new SigScanTarget(1, "A3 ?? ?? ?? ?? C7 05 ?? ?? ?? ?? 08 00 00 00 E8 ?? ?? ?? ?? 83 C4 18 C3 CC"));
+			signatureTargets.Add("VariableNamesOld", new SigScanTarget(14, "68 ?? ?? ?? ?? 8D 04 ?? 00 00 00 00 50 68 ?? ?? ?? ?? E8 ?? ?? ?? ?? 89 35")); // GMS IDE 1.4.1760, 1.4.1763 VM
+			signatureTargets.Add("GlobalData", new SigScanTarget(4, "55 56 8B 35 ?? ?? ?? ?? ?? ?? ?? 85 F6 0F 84 ?? 00 00 00"));
+			signatureTargets.Add("SleepMargin", new SigScanTarget(11, "8B ?? E8 ?? ?? ?? ?? 83 C4 0C A3 ?? ?? ?? ?? C6 05 ?? ?? ?? ?? 01 E9 ?? ?? ?? ?? B9"));
 		}
 
-		foreach (KeyValuePair<string, SigScanTarget> target in targets.Where(x => !x.Key.StartsWith("VariableNames") && x.Key != "GlobalData"))
+		foreach (KeyValuePair<string, SigScanTarget> target in signatureTargets.Where(x => !x.Key.StartsWith("VariableNames") && x.Key != "GlobalData"))
 		{
-			target.Value.OnFound = (proc, scanner, address) => is64bit ? address + 0x4 + proc.ReadValue<int>(address) : proc.ReadPointer(address);
+			target.Value.OnFound = (proc, scan, result) => is64bit ? result + 0x4 + proc.ReadValue<int>(result) : proc.ReadPointer(result);
 		}
 
 		scan_start:;
-		while (!token.IsCancellationRequested)
+
+		IntPtr exeBaseAddress = modules.First().BaseAddress;
+		int exeMemorySize = modules.First().ModuleMemorySize;
+		int variableTargetsCount = variableTargets.Distinct().Count();
+		var scanner = new SignatureScanner(game, exeBaseAddress, exeMemorySize);
+
+		log(qt(exePath));
+		log("exeSize: " + exeSize + ", winSize: " + winSize + ", exeMemorySize: " + hex(exeMemorySize) + ", exeBaseAddress: " + hex(exeBaseAddress) + ", is64bit: " + is64bit);
+
+		log("Scanning for current room name..");
+
+		var roomBasePointers = new List<Tuple<string, IntPtr>>();
+		foreach (IntPtr pointer in scanner.ScanAll(signatureTargets["RoomBase"]).Distinct())
 		{
-			log("Scanning for current room name..");
+			roomBasePointers.Add(Tuple.Create("RoomBase", pointer));
+		}
 
-			var scanner = new SignatureScanner(game, modules.First().BaseAddress, modules.First().ModuleMemorySize);
-			IEnumerable<IntPtr> roomNumberAddresses = scanner.ScanAll(targets["RoomNumber"]).Distinct();
-			IEnumerable<IntPtr> a = scanner.ScanAll(targets["RoomBase"]).Distinct();
-			IEnumerable<IntPtr> b = !is64bit ? scanner.ScanAll(targets["RoomBaseOld"]).Distinct() : Enumerable.Empty<IntPtr>();
-
-			var roomBasePointers = new List<Tuple<string, IntPtr>>();
-			foreach (IntPtr pointer in a)
-			{
-				roomBasePointers.Add(Tuple.Create("RoomBase", pointer));
-			}
-
-			foreach (IntPtr pointer in b)
+		if (!is64bit)
+		{
+			foreach (IntPtr pointer in scanner.ScanAll(signatureTargets["RoomBaseOld"]).Distinct())
 			{
 				roomBasePointers.Add(Tuple.Create("RoomBaseOld", pointer));
 			}
-
-			foreach (Tuple<string, IntPtr> element in roomBasePointers)
-			{
-				vars.RoomBaseElement = element;
-				foreach (IntPtr address in roomNumberAddresses)
-				{
-					vars.RoomNumberAddress = address;
-					vars.RoomName();
-
-					if (current.RoomName != "")
-					{
-						goto room_name_found;
-					}
-				}
-			}
-
-			log("Room name not found.");
-			await System.Threading.Tasks.Task.Delay(2000, token);
-			continue;
-
-			room_name_found:;
-			break;
 		}
 
-		while (!token.IsCancellationRequested)
+		IEnumerable<IntPtr> roomNumberAddresses = scanner.ScanAll(signatureTargets["RoomNumber"]).Distinct();
+		foreach (var element in roomBasePointers)
 		{
-			log("Scanning for global variable names..");
+			string signatureTargetName = element.Item1;
+			IntPtr roomBasePointer = element.Item2;
 
-			string[] variableNames = { "playerFrames", /* "gameMode", "playerSpawns" */ };
-
-			var scanner = new SignatureScanner(game, modules.First().BaseAddress, modules.First().ModuleMemorySize);
-			IEnumerable<IntPtr> a = scanner.ScanAll(targets["VariableNames"]);
-			IEnumerable<IntPtr> b = !is64bit ? scanner.ScanAll(targets["VariableNamesOld"]) : Enumerable.Empty<IntPtr>();
-
-			var variableBasePointers = new List<Tuple<string, IntPtr, IntPtr, int>>();
-			foreach (IntPtr address in a)
+			foreach (IntPtr roomNumberAddress in roomNumberAddresses)
 			{
-				IntPtr variableBasePointer = is64bit ? address + 0x4 + game.ReadValue<int>(address) : game.ReadPointer(address);
-				IntPtr variableCountAddress = is64bit ? (address - 0xD) + 0x4 + game.ReadValue<int>(address - 0xD) : game.ReadPointer(address + 0x6);
-				long offset = (long)variableBasePointer - (long)variableCountAddress;
-				int count = game.ReadValue<int>(variableCountAddress);
-
-				if ((is64bit && offset == 0x10 || !is64bit && offset == 0xC) && count > 0 && count <= 0xFFFF)
+				vars.RoomName = (Action)(() =>
 				{
-					Tuple<string, IntPtr, IntPtr, int> element = Tuple.Create("VariableNames", variableBasePointer, variableCountAddress, count);
-					if (!variableBasePointers.Any(x => x.Item1 == "VariableNames" && x.Item2 == variableBasePointer))
+					try
 					{
-						variableBasePointers.Add(element);
-					}
-				}
-			}
+						current.RoomName = "";
+						IntPtr roomBaseAddress = game.ReadPointer(roomBasePointer);
 
-			foreach (IntPtr address in b)
-			{
-				IntPtr variableBasePointer = game.ReadPointer(address);
-				IntPtr variableCountAddress = game.ReadPointer(address + 0xB);
-				long offset = (long)variableCountAddress - (long)variableBasePointer;
-				int count = game.ReadValue<int>(variableCountAddress);
-
-				if (offset == 0x4 && count > 0 && count <= 0xFFFF)
-				{
-					Tuple<string, IntPtr, IntPtr, int> element = Tuple.Create("VariableNamesOld", variableBasePointer, variableCountAddress, count);
-					if (!variableBasePointers.Any(x => x.Item1 == "VariableNamesOld" && x.Item2 == variableBasePointer))
-					{
-						variableBasePointers.Add(element);
-					}
-				}
-			}
-
-			var variableNamesFound = new List<Tuple<string, int>>();
-			foreach (Tuple<string, IntPtr, IntPtr, int> element in variableBasePointers)
-			{
-				variableNamesFound.Clear();
-				IntPtr variableBaseAddress = game.ReadPointer(element.Item2);
-				log(element.Item1 + ": " + hex(element.Item2) + " = " + hex(variableBaseAddress) + ", " + hex(element.Item3) + " = " + hex(element.Item4));
-
-				int variableIndex = variableBaseAddress == IntPtr.Zero ? int.MaxValue : 0;
-				while (variableIndex <= element.Item4)
-				{
-					IntPtr variableNameAddress = game.ReadPointer(variableBaseAddress + (variableIndex * pointerSize));
-					string variableName = game.ReadString(variableNameAddress, 256);
-
-					if (!string.IsNullOrWhiteSpace(variableName) && variableNames.Contains(variableName))
-					{
-						string duplicate = "";
-						if (variableNamesFound.Any(x => x.Item1 == variableName))
+						if (roomBaseAddress != IntPtr.Zero)
 						{
-							duplicate = " (duplicate, ignored)";
-						}
-						else
-						{
-							variableNamesFound.Add(Tuple.Create(variableName, variableIndex));
-						}
-
-						log(hex(variableBaseAddress) + " + (" + hex(variableIndex) + " * " + hex(pointerSize) + ") -> " + hex(variableNameAddress) + " = " + qt(variableName) + duplicate);
-					}
-
-					variableIndex++;
-				}
-
-				log("variableNamesFound: " + variableNamesFound.Count + "/" + variableNames.Distinct().Count());
-
-				if (variableNamesFound.Count == variableNames.Distinct().Count() && variableNamesFound.Count > 0)
-				{
-					goto variable_names_found;
-				}
-			}
-
-			if (variableBasePointers.Count == 0)
-			{
-				log("Variable base not found.");
-			}
-
-			await System.Threading.Tasks.Task.Delay(2000, token);
-			goto scan_start;
-
-			variable_names_found:;
-			vars.VariableNamesFound = variableNamesFound;
-			break;
-		}
-
-		while (!token.IsCancellationRequested)
-		{
-			log("Scanning for global variable addresses..");
-
-			var scanner = new SignatureScanner(game, modules.First().BaseAddress, modules.First().ModuleMemorySize);
-			IEnumerable<IntPtr> globalDataResults = scanner.ScanAll(targets["GlobalData"]).Distinct();
-
-			var pointerBasesFound = new List<Tuple<IntPtr, IntPtr, int, IntPtr, IntPtr, int>>();
-			foreach (IntPtr address in globalDataResults)
-			{
-				IntPtr searchBasePrimaryPointer = is64bit ? address + 0x4 + game.ReadValue<int>(address) : game.ReadPointer(address);
-				IntPtr searchBasePrimaryAddress = game.ReadPointer(searchBasePrimaryPointer);
-				IntPtr searchBaseSecondaryPointer = is64bit ? (address - 0x7) + 0x4 + game.ReadValue<int>(address - 0x7) : IntPtr.Zero;
-				IntPtr searchBaseSecondaryAddress = is64bit ? game.ReadPointer(searchBaseSecondaryPointer) : IntPtr.Zero;
-
-				var searchBasesFound = new List<Tuple<IntPtr, IntPtr>>();
-				if (searchBasePrimaryAddress != IntPtr.Zero && !searchBasesFound.Any(x => x.Item2 == searchBasePrimaryAddress))
-				{
-					searchBasesFound.Add(Tuple.Create(searchBasePrimaryPointer, searchBasePrimaryAddress));
-				}
-
-				if (searchBaseSecondaryAddress != IntPtr.Zero && !searchBasesFound.Any(x => x.Item2 == searchBaseSecondaryAddress))
-				{
-					searchBasesFound.Add(Tuple.Create(searchBaseSecondaryPointer, searchBaseSecondaryAddress));
-				}
-
-				foreach (Tuple<IntPtr, IntPtr> element in searchBasesFound)
-				{
-					int offset = pointerSize;
-					while (pointerBasesFound.Where(x => x.Item2 == element.Item2).Count() < 4 && offset <= 0xFFFF)
-					{
-						IntPtr pointerBasePointer = game.ReadPointer(element.Item2 + offset);
-						if (pointerBasePointer != IntPtr.Zero)
-						{
-							IntPtr pointerBaseAddress = game.ReadPointer(pointerBasePointer + 0x10);
-							int andOperand = game.ReadBytes(pointerBaseAddress, pointerSize) != null ? game.ReadValue<int>(pointerBasePointer + 0x8) : 0;
-
-							if (andOperand > 0 && andOperand <= 0xFFFF && !pointerBasesFound.Any(x => x.Item5 == pointerBaseAddress && x.Item6 == andOperand))
+							byte[] number = game.ReadBytes((IntPtr)roomNumberAddress, 4);
+							if (number != null)
 							{
-								pointerBasesFound.Add(Tuple.Create(element.Item1, element.Item2, offset, pointerBasePointer, pointerBaseAddress, andOperand));
+								int roomNumber = BitConverter.ToInt32(number, 0);
+								IntPtr roomNameAddress = game.ReadPointer(roomBaseAddress + (roomNumber * pointerSize));
+								string roomName = game.ReadString(roomNameAddress, 256) ?? "";
+
+								if (System.Text.RegularExpressions.Regex.IsMatch(roomName, @"^[a-zA-Z_]+[a-zA-Z0-9_]*$"))
+								{
+									current.RoomName = roomName.ToLower();
+									if (!vars.Ready)
+									{
+										log("RoomNumber: " + hex(roomNumberAddress) + " = " + hex(roomNumber));
+										log(signatureTargetName + ": " + hex(roomBasePointer) + " = " + hex(roomBaseAddress));
+										log(hex(roomBaseAddress) + " + (" + hex(roomNumber) + " * " + hex(pointerSize) + ") -> " +
+										hex(roomNameAddress) + " = " + qt(current.RoomName));
+									}
+								}
 							}
 						}
+					}
+					catch
+					{
+					}
+				});
 
-						offset += pointerSize;
+				vars.RoomName();
+				if (current.RoomName != "")
+				{
+					vars.RoomNumberAddress = roomNumberAddress;
+					goto room_name_found;
+				}
+			}
+		}
+
+		log("Room name not found.");
+		await System.Threading.Tasks.Task.Delay(2000, token);
+		goto scan_start;
+
+		room_name_found:;
+
+		log("Scanning for global variable names..");
+
+		var variableNamesBasesFound = new List<Tuple<string, IntPtr, IntPtr, int>>();
+		foreach (IntPtr result in scanner.ScanAll(signatureTargets["VariableNames"]))
+		{
+			IntPtr variableNamesBasePointer, variableNamesCountAddress;
+			if (is64bit)
+			{
+				variableNamesBasePointer = result + 0x4 + game.ReadValue<int>(result);
+				variableNamesCountAddress = (result - 0xD) + 0x4 + game.ReadValue<int>(result - 0xD);
+			}
+			else
+			{
+				variableNamesBasePointer = game.ReadPointer(result);
+				variableNamesCountAddress = game.ReadPointer(result + 0x6);
+			}
+
+			int variableNamesCount = game.ReadValue<int>(variableNamesCountAddress);
+			long offset = (long)variableNamesBasePointer - (long)variableNamesCountAddress;
+
+			if (variableNamesCount > 0 && variableNamesCount <= 0xFFFF && (is64bit && offset == 0x10 || !is64bit && offset == 0xC))
+			{
+				if (!variableNamesBasesFound.Any(x => x.Item1 == "VariableNames" && x.Item2 == variableNamesBasePointer))
+				{
+					variableNamesBasesFound.Add(Tuple.Create("VariableNames", variableNamesBasePointer, variableNamesCountAddress, variableNamesCount));
+				}
+			}
+		}
+
+		if (!is64bit)
+		{
+			foreach (IntPtr result in scanner.ScanAll(signatureTargets["VariableNamesOld"]))
+			{
+				IntPtr variableNamesBasePointer = game.ReadPointer(result);
+				IntPtr variableNamesCountAddress = game.ReadPointer(result + 0xB);
+				int variableNamesCount = game.ReadValue<int>(variableNamesCountAddress);
+				long offset = (long)variableNamesCountAddress - (long)variableNamesBasePointer;
+
+				if (variableNamesCount > 0 && variableNamesCount <= 0xFFFF && offset == 0x4)
+				{
+					if (!variableNamesBasesFound.Any(x => x.Item1 == "VariableNamesOld" && x.Item2 == variableNamesBasePointer))
+					{
+						variableNamesBasesFound.Add(Tuple.Create("VariableNamesOld", variableNamesBasePointer, variableNamesCountAddress, variableNamesCount));
 					}
 				}
 			}
+		}
 
-			if (pointerBasesFound.Count > 0)
+		if (variableNamesBasesFound.Count == 0)
+		{
+			log("Name base not found.");
+			await System.Threading.Tasks.Task.Delay(2000, token);
+			goto scan_start;
+		}
+
+		var variableNamesFoundLists = new List<List<Tuple<IntPtr, int, IntPtr, string>>>();
+		foreach (var element in variableNamesBasesFound)
+		{
+			string signatureTargetName = element.Item1;
+			IntPtr variableNamesBasePointer = element.Item2;
+			IntPtr variableNamesCountAddress = element.Item3;
+			int variableNamesCount = element.Item4;
+
+			IntPtr variableNamesBaseAddress = game.ReadPointer(variableNamesBasePointer);
+			int variableNameIndex = variableNamesBaseAddress == IntPtr.Zero ? int.MaxValue : 0;
+
+			log(signatureTargetName + ": " + hex(variableNamesBasePointer) + " = " + hex(variableNamesBaseAddress) + ", " +
+			hex(variableNamesCountAddress) + " = " + hex(variableNamesCount));
+
+			if (variableTargetsCount > 0)
 			{
-				vars.PointerBasesFound = pointerBasesFound;
-				break;
+				var variableNamesFound = new List<Tuple<IntPtr, int, IntPtr, string>>();
+				while (variableNameIndex < variableNamesCount)
+				{
+					IntPtr variableNameAddress = game.ReadPointer(variableNamesBaseAddress + (variableNameIndex * pointerSize));
+					string variableName = game.ReadString(variableNameAddress, 256);
+
+					if (!string.IsNullOrWhiteSpace(variableName) && variableTargets.Contains(variableName))
+					{
+						variableNamesFound.Add(Tuple.Create(variableNamesBaseAddress, variableNameIndex, variableNameAddress, variableName));
+
+						log(hex(variableNamesBaseAddress) + " + (" + hex(variableNameIndex) + " * " + hex(pointerSize) + ") -> " +
+						hex(variableNameAddress) + " = " + qt(variableName));
+					}
+
+					variableNameIndex++;
+				}
+
+				int variableNamesFoundCount = variableNamesFound.Select(x => x.Item4).Distinct().Count();
+				if (!variableNamesFoundLists.Any(x => x.SequenceEqual(variableNamesFound)) && variableNamesFoundCount == variableTargetsCount)
+				{
+					variableNamesFoundLists.Add(variableNamesFound);
+				}
+
+				log("variableNamesFound: " + variableNamesFoundCount + "/" + variableTargetsCount);
+			}
+		}
+
+		log("Scanning for global variable addresses..");
+
+		var pointerBasesFound = new List<Tuple<IntPtr, IntPtr, int, IntPtr, IntPtr, int>>();
+		foreach (IntPtr result in scanner.ScanAll(signatureTargets["GlobalData"]))
+		{
+			IntPtr searchBaseFirstPointer, searchBaseFirstAddress, searchBaseSecondPointer, searchBaseSecondAddress;
+			if (is64bit)
+			{
+				searchBaseFirstPointer = result + 0x4 + game.ReadValue<int>(result);
+				searchBaseFirstAddress = game.ReadPointer(searchBaseFirstPointer);
+				searchBaseSecondPointer = (result + 0x7) + 0x4 + game.ReadValue<int>(result + 0x7);
+				searchBaseSecondAddress = game.ReadPointer(searchBaseSecondPointer);
+			}
+			else
+			{
+				searchBaseFirstPointer = game.ReadPointer(result);
+				searchBaseFirstAddress = game.ReadPointer(searchBaseFirstPointer);
+				searchBaseSecondPointer = IntPtr.Zero;
+				searchBaseSecondAddress = IntPtr.Zero;
 			}
 
+			var searchBasesFound = new List<Tuple<IntPtr, IntPtr>>();
+			if (searchBaseFirstAddress != IntPtr.Zero && !searchBasesFound.Any(x => x.Item2 == searchBaseFirstAddress))
+			{
+				searchBasesFound.Add(Tuple.Create(searchBaseFirstPointer, searchBaseFirstAddress));
+			}
+
+			if (searchBaseSecondAddress != IntPtr.Zero && !searchBasesFound.Any(x => x.Item2 == searchBaseSecondAddress))
+			{
+				searchBasesFound.Add(Tuple.Create(searchBaseSecondPointer, searchBaseSecondAddress));
+			}
+
+			foreach (var element in searchBasesFound)
+			{
+				IntPtr searchBasePointer = element.Item1;
+				IntPtr searchBaseAddress = element.Item2;
+
+				int searchBaseOffset = pointerSize;
+				while (pointerBasesFound.Where(x => x.Item2 == searchBaseAddress).Count() < 4 && searchBaseOffset <= 0x3FF)
+				{
+					IntPtr pointerBasePointer = game.ReadPointer(searchBaseAddress + searchBaseOffset);
+					if (pointerBasePointer != IntPtr.Zero)
+					{
+						IntPtr pointerBaseAddress = game.ReadPointer(pointerBasePointer + 0x10);
+						int andOperand = game.ReadBytes(pointerBaseAddress, pointerSize) != null ? game.ReadValue<int>(pointerBasePointer + 0x8) : 0;
+
+						if (andOperand > 0 && andOperand <= 0xFFFF && !pointerBasesFound.Any(x => x.Item5 == pointerBaseAddress && x.Item6 == andOperand))
+						{
+							pointerBasesFound.Add(Tuple.Create(searchBasePointer, searchBaseAddress, searchBaseOffset, pointerBasePointer, pointerBaseAddress, andOperand));
+						}
+					}
+
+					searchBaseOffset += pointerSize;
+				}
+			}
+		}
+
+		if (pointerBasesFound.Count == 0)
+		{
 			log("Pointer base not found.");
 			await System.Threading.Tasks.Task.Delay(2000, token);
 			goto scan_start;
 		}
 
-		if (!token.IsCancellationRequested)
+		foreach (var element in pointerBasesFound)
 		{
-			var variableAddressesFound = new List<Tuple<string, IntPtr>>();
-			foreach (Tuple<IntPtr, IntPtr, int, IntPtr, IntPtr, int> elementA in vars.PointerBasesFound)
-			{
-				variableAddressesFound.Clear();
-				string a = "GlobalData: " + hex(elementA.Item1) + " -> " + hex(elementA.Item2) + " + " + hex(elementA.Item3) + " -> ";
-				string b = hex(elementA.Item4) + " + 0x10 = " + hex(elementA.Item5) + ", " + hex(elementA.Item4) + " + 0x8 = " + hex(elementA.Item6);
-				log(a + b);
+			IntPtr searchBasePointer = element.Item1;
+			IntPtr searchBaseAddress = element.Item2;
+			int searchBaseOffset = element.Item3;
+			IntPtr pointerBasePointer = element.Item4;
+			IntPtr pointerBaseAddress = element.Item5;
+			int andOperand = element.Item6;
 
-				foreach (Tuple<string, int> elementB in vars.VariableNamesFound)
+			log("GlobalData: " + hex(searchBasePointer) + " -> " + hex(searchBaseAddress) + " + " + hex(searchBaseOffset) + " -> " +
+			hex(pointerBasePointer) + " + 0x10 = " + hex(pointerBaseAddress) + ", " + hex(pointerBasePointer) + " + 0x8 = " + hex(andOperand));
+
+			foreach (var list in variableNamesFoundLists)
+			{
+				var variableAddressesFound = new List<Tuple<string, IntPtr>>();
+				foreach (var variableTarget in list)
 				{
+					IntPtr variableNamesBaseAddress = vars.VariableNamesBaseAddress = variableTarget.Item1;
+					int variableNameIndex = variableTarget.Item2;
+					IntPtr variableNameAddress = variableTarget.Item3;
+					string variableName = variableTarget.Item4;
+
 					try
 					{
 						// GM runtime 2023.11.0.157 (04-Dec-2023) ...
 
-						int variableIdentifierD = elementB.Item2 + 0x186A0;
+						int variableIdentifierD = variableNameIndex + 0x186A0;
 						int identifierExtensionD = variableIdentifierD + 0x1;
-						int resultD = identifierExtensionD & elementA.Item6;
-						long offsetD = resultD * (pointerSize + 0x8);
-						IntPtr variablePointerD = (IntPtr)((long)elementA.Item5 + offsetD);
+						int resultD = identifierExtensionD & andOperand;
+						int offsetD = checked(resultD * (pointerSize + 0x8));
+						IntPtr variablePointerD = checked(pointerBaseAddress + offsetD);
 						int identifierD = game.ReadValue<int>(variablePointerD + pointerSize);
 						int extensionD = game.ReadValue<int>(variablePointerD + pointerSize + 0x4);
 
 						// GMS2 runtime 2.3.0.401 (14-Aug-2020) ... GM runtime 2023.8.2.152 (06-Oct-2023)
 
-						int variableIdentifierC = elementB.Item2 + 0x186A0;
+						int variableIdentifierC = variableNameIndex + 0x186A0;
 						int identifierExtensionC = (0x1 - (0x61C8864F * variableIdentifierC)) & 0x7FFFFFFF;
-						int resultC = identifierExtensionC & elementA.Item6;
-						long offsetC = resultC * (pointerSize + 0x8);
-						IntPtr variablePointerC = (IntPtr)((long)elementA.Item5 + offsetC);
+						int resultC = identifierExtensionC & andOperand;
+						int offsetC = checked(resultC * (pointerSize + 0x8));
+						IntPtr variablePointerC = checked(pointerBaseAddress + offsetC);
 						int identifierC = game.ReadValue<int>(variablePointerC + pointerSize);
 						int extensionC = game.ReadValue<int>(variablePointerC + pointerSize + 0x4);
 
 						// GMS2 runtime 2.2.1.287 (05-Dec-2018) ... 2.2.5.378 (18-Dec-2019)
 
-						int variableIdentifierB = elementB.Item2;
+						int variableIdentifierB = variableNameIndex;
 						int identifierExtensionB = (0x1 - (0x61C8864F * variableIdentifierB)) & 0x7FFFFFFF;
-						int resultB = identifierExtensionB & elementA.Item6;
-						long offsetB = resultB * (pointerSize + 0x8);
-						IntPtr variablePointerB = (IntPtr)((long)elementA.Item5 + offsetB);
+						int resultB = identifierExtensionB & andOperand;
+						int offsetB = checked(resultB * (pointerSize + 0x8));
+						IntPtr variablePointerB = checked(pointerBaseAddress + offsetB);
 						int identifierB = game.ReadValue<int>(variablePointerB + pointerSize);
 						int extensionB = game.ReadValue<int>(variablePointerB + pointerSize + 0x4);
 
 						// GMS IDE 1.4.1760 (30-Aug-2016) ... GMS2 runtime 2.2.0.261 (09-Oct-2018)
 
-						int variableIdentifierA = elementB.Item2;
+						int variableIdentifierA = variableNameIndex;
 						int identifierExtensionA = variableIdentifierA + 0x1;
-						int resultA = identifierExtensionA & elementA.Item6;
-						long offsetA = (resultA * (pointerSize + 0x8)) + 0x4;
-						IntPtr variablePointerA = (IntPtr)((long)elementA.Item5 + offsetA);
+						int resultA = identifierExtensionA & andOperand;
+						int offsetA = checked((resultA * (pointerSize + 0x8)) + 0x4);
+						IntPtr variablePointerA = checked(pointerBaseAddress + offsetA);
 						int identifierA = game.ReadValue<int>(variablePointerA - pointerSize);
 						int extensionA = game.ReadValue<int>(variablePointerA + pointerSize);
 
@@ -438,13 +457,26 @@ init
 
 						if (variableAddress != IntPtr.Zero)
 						{
+							Tuple<string, IntPtr> variable = Tuple.Create(variableName, variableAddress);
+							string ifDuplicateFound = "";
+
+							if (variableAddressesFound.Contains(variable))
+							{
+								ifDuplicateFound = " (duplicate, ignored)";
+							}
+							else
+							{
+								variableAddressesFound.Add(variable);
+							}
+
 							// Values are either variableAddress = double, or variableAddress -> stringPointer -> stringAddress = string.
 							// Note that stringPointer and stringAddress may change while the game is running, variableAddress does not.
 
 							double value = game.ReadValue<double>(variableAddress);
 							if (!value.ToString().Any(char.IsLetter) && value.ToString().Length <= 12)
 							{
-								log(qt(elementB.Item1) + " -> " + hex(variablePointer) + " -> " + hex(variableAddress) + " = <double>" + value + gameMakerGroup);
+								log(hex(variableNameAddress) + " = " + qt(variableName) + " -> " + hex(variablePointer) + " -> " +
+								hex(variableAddress) + " = <double>" + value + gameMakerGroup + ifDuplicateFound);
 							}
 							else
 							{
@@ -452,12 +484,9 @@ init
 								IntPtr stringAddress = game.ReadPointer(stringPointer);
 								string stringValue = game.ReadString(stringAddress, 256);
 
-								string c = qt(elementB.Item1) + " -> " + hex(variablePointer) + " -> " + hex(variableAddress) + " -> ";
-								string d = hex(stringPointer) + " -> " + hex(stringAddress) + " = " + qt(stringValue) + gameMakerGroup;
-								log(c + d);
+								log(hex(variableNameAddress) + " = " + qt(variableName) + " -> " + hex(variablePointer) + " -> " + hex(variableAddress) + " -> " +
+								hex(stringPointer) + " -> " + hex(stringAddress) + " = " + qt(stringValue) + gameMakerGroup + ifDuplicateFound);
 							}
-
-							variableAddressesFound.Add(Tuple.Create(elementB.Item1, variableAddress));
 						}
 					}
 					catch
@@ -465,28 +494,36 @@ init
 					}
 				}
 
-				log("variableAddressesFound: " + variableAddressesFound.Count + "/" + vars.VariableNamesFound.Count);
+				int variableAddressesFoundCount = variableAddressesFound.Distinct().Count();
+				string ifZeroFound = variableAddressesFoundCount == 0 ? " (" + hex(vars.VariableNamesBaseAddress) + ")" : "";
 
-				if (variableAddressesFound.Count == vars.VariableNamesFound.Count)
+				log("variableAddressesFound: " + variableAddressesFoundCount + "/" + variableTargetsCount + ifZeroFound);
+
+				if (variableAddressesFoundCount == variableTargetsCount)
 				{
-					IntPtr frameAddress = variableAddressesFound.Where(x => x.Item1 == "playerFrames").Select(x => x.Item2).FirstOrDefault();
+					if (token.IsCancellationRequested)
+					{
+						goto task_end;
+					}
+
+					IntPtr frameCountAddress = variableAddressesFound.Where(x => x.Item1 == "playerFrames").Select(x => x.Item2).FirstOrDefault();
 					vars.RoomNumber = new MemoryWatcher<int>(vars.RoomNumberAddress);
-					vars.FrameCount = new MemoryWatcher<double>(frameAddress);
+					vars.FrameCount = new MemoryWatcher<double>(frameCountAddress);
 					goto ready;
 				}
 			}
-
-			await System.Threading.Tasks.Task.Delay(2000, token);
-			goto scan_start;
 		}
 
-		goto task_end;
+		await System.Threading.Tasks.Task.Delay(2000, token);
+		goto scan_start;
 
 		ready:;
+
 		vars.PatchLowFPS = (Action)(() =>
 		{
 			// Makes the game run at full intended frame rate regardless of display refresh rate or Windows version.
-			// Increases sleep margin value. It doesn't fix the actual underlying problem, but has essentially the same outcome (full FPS).
+			// Increases sleep margin value. This doesn't fix the actual underlying problem,
+			// but achieves the desired result (full FPS) at the cost of increased CPU usage.
 			// Affects all (?) versions up until and including GMS2 runtime 2.3.1.409 (16-Dec-2020).
 			// This GameMaker problem was fixed in GMS2 runtime 2.3.2.420 (30-Mar-2021).
 
@@ -494,8 +531,7 @@ init
 			{
 				game.Suspend();
 
-				var scanner = new SignatureScanner(game, modules.First().BaseAddress, modules.First().ModuleMemorySize);
-				IntPtr sleepMarginAddress = scanner.Scan(targets["SleepMargin"]);
+				IntPtr sleepMarginAddress = scanner.Scan(signatureTargets["SleepMargin"]);
 				byte[] value = game.ReadBytes(sleepMarginAddress, 4);
 
 				if (value != null)
@@ -530,38 +566,41 @@ init
 				{
 					game.Suspend();
 
-					var scanner = new SignatureScanner(game, modules.First().BaseAddress, modules.First().ModuleMemorySize);
 					SigScanTarget tempPathGameMaker14 = new SigScanTarget(2, "CC A1 ?? ?? ?? ?? 50 E8 ?? ?? FF FF 59 C3 CC");
 					SigScanTarget tempPathGameMaker2 = new SigScanTarget(19, "C3 5F 5E 5B C7 44 24 04 ?? ?? ?? ?? E9 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? E8 ?? ?? ?? ?? ?? C3");
 					SigScanTarget functionCalls = new SigScanTarget(21, "E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8 ?? ?? ?? ?? E8");
 
 					var tempPathResults = new List<Tuple<IntPtr, int>>();
-					foreach (IntPtr address in scanner.ScanAll(tempPathGameMaker14))
+					foreach (IntPtr result in scanner.ScanAll(tempPathGameMaker14))
 					{
-						tempPathResults.Add(Tuple.Create(address, 0x1));
+						tempPathResults.Add(Tuple.Create(result, 0x1));
 					}
 
-					foreach (IntPtr address in scanner.ScanAll(tempPathGameMaker2))
+					foreach (IntPtr result in scanner.ScanAll(tempPathGameMaker2))
 					{
-						tempPathResults.Add(Tuple.Create(address, 0x2));
+						tempPathResults.Add(Tuple.Create(result, 0x2));
 					}
 
-					foreach (Tuple<IntPtr, int> element in tempPathResults)
+					IEnumerable<IntPtr> functionCallsResults = scanner.ScanAll(functionCalls);
+					foreach (var element in tempPathResults)
 					{
-						string tempPath = new DeepPointer(element.Item1, 0x0, 0x0).DerefString(game, 4);
+						IntPtr tempPathResult = element.Item1;
+						int functionStartOffset = element.Item2;
+
+						string tempPath = new DeepPointer(tempPathResult, 0x0, 0x0).DerefString(game, 4);
 						if (!string.IsNullOrWhiteSpace(tempPath) && tempPath.Length == 4)
 						{
-							foreach (IntPtr address in scanner.ScanAll(functionCalls))
+							foreach (IntPtr result in functionCallsResults)
 							{
-								IntPtr calleeAddress = address + 0x4 + game.ReadValue<int>(address);
-								IntPtr functionAddress = element.Item1 - element.Item2;
+								IntPtr calleeAddress = result + 0x4 + game.ReadValue<int>(result);
+								IntPtr functionAddress = tempPathResult - functionStartOffset;
 
 								if (calleeAddress.Equals(functionAddress))
 								{
 									byte[] nops = new byte[] { 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
 									game.WriteBytes(functionAddress, nops);
-									log("%TEMP% bug patched. CALL: " + hex(address - 0x1));
-									goto temp_bug_patched;
+									log("%TEMP% bug patched. Call: " + hex(result - 0x1));
+									goto end;
 								}
 							}
 						}
@@ -569,7 +608,7 @@ init
 
 					log("%TEMP% bug not found.");
 
-					temp_bug_patched:;
+					end:;
 				}
 			}
 			finally
@@ -596,6 +635,7 @@ init
 		vars.Ready = true;
 
 		task_end:;
+
 		log("Task end.");
 	});
 }
@@ -684,4 +724,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.9.7 14-Dec-2023
+// v0.9.8 05-Jan-2024
