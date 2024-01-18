@@ -83,13 +83,13 @@ init
 
 	System.Threading.Tasks.Task.Run(async () =>
 	{
-		// Resolves global GameMaker variable names to data addresses.
+		// Resolves global GameMaker variable names to data addresses, finds the current room name.
 		// For games made with GameMaker: Studio IDE 1.4.1760 (30-Aug-2016) and newer, up until and including the latest GameMaker Studio 2/GameMaker (Zeus) runtime.
 		// Does not work with 1.4.1760 YYC or 1.4.1763 YYC (06-Oct-2016).
 		// Tested on stable/LTS, VM/YYC 32-bit/64-bit (Windows only), excluding the earliest GameMaker Studio 2 runtimes.
 		// Oldest GMS2 runtime I have found/tested is 2.0.6.96 (16-May-2017), but the first stable GMS2 IDE is 2.0.5.76 (07-Mar-2017).
 
-		string[] variableTargets = { "playerFrames", /* "gameMode", "playerSpawns" */ };
+		string[] variableTargets = { "playerFrames", /* "playerSpawns", "gameMode" */ };
 
 		var signatureTargets = new Dictionary<string, SigScanTarget>();
 		if (is64bit)
@@ -104,7 +104,7 @@ init
 		{
 			signatureTargets.Add("RoomNumber", new SigScanTarget(7, "E8 ?? ?? ?? ?? 8B 0D ?? ?? ?? ?? 3B C8 75 1A 6A 01 68 ?? ?? ?? ?? E8"));
 			signatureTargets.Add("RoomBase", new SigScanTarget(11, "4A 8B 41 FC 89 01 ?? ?? ?? ?? A1 ?? ?? ?? ?? 68 ?? ?? ?? ?? ?? ?? ?? E8"));
-			signatureTargets.Add("RoomBaseOld", new SigScanTarget(13, "90 8A ?? 88 ?? ?? 40 84 C9 75 F6 8B 0D ?? ?? ?? ?? 8B ?? ?? 85 C0")); // GMS IDE 1.4.1760 ... 1.4.9999 VM/YYC
+			signatureTargets.Add("RoomBaseOld", new SigScanTarget(13, "90 8A ?? 88 ?? ?? 40 84 C9 75 F6 8B 0D ?? ?? ?? ?? 8B ?? ?? 85 C0")); // GMS IDE 1.4.1760 ... 1.4.9999 VM/YYC (04-Oct-2018)
 			signatureTargets.Add("VariableNames", new SigScanTarget(1, "A3 ?? ?? ?? ?? C7 05 ?? ?? ?? ?? 08 00 00 00 E8 ?? ?? ?? ?? 83 C4 18 C3 CC"));
 			signatureTargets.Add("VariableNamesOld", new SigScanTarget(14, "68 ?? ?? ?? ?? 8D 04 ?? 00 00 00 00 50 68 ?? ?? ?? ?? E8 ?? ?? ?? ?? 89 35")); // GMS IDE 1.4.1760, 1.4.1763 VM
 			signatureTargets.Add("GlobalData", new SigScanTarget(4, "55 56 8B 35 ?? ?? ?? ?? ?? ?? ?? 85 F6 0F 84 ?? 00 00 00"));
@@ -159,7 +159,7 @@ init
 
 						if (roomBaseAddress != IntPtr.Zero)
 						{
-							byte[] number = game.ReadBytes((IntPtr)roomNumberAddress, 4);
+							byte[] number = game.ReadBytes(roomNumberAddress, 4);
 							if (number != null)
 							{
 								int roomNumber = BitConverter.ToInt32(number, 0);
@@ -521,11 +521,11 @@ init
 
 		vars.PatchLowFPS = (Action)(() =>
 		{
-			// Makes the game run at full intended frame rate regardless of display refresh rate or Windows version.
-			// Increases sleep margin value. This doesn't fix the actual underlying problem,
+			// Makes a GameMaker game run at full intended frame rate regardless of display refresh rate or Windows version.
+			// Increases sleep margin value. This doesn't fix the actual underlying issue,
 			// but achieves the desired result (full FPS) at the cost of increased CPU usage.
 			// Affects all (?) versions up until and including GMS2 runtime 2.3.1.409 (16-Dec-2020).
-			// This GameMaker problem was fixed in GMS2 runtime 2.3.2.420 (30-Mar-2021).
+			// This GameMaker issue was fixed in GMS2 runtime 2.3.2.420 (30-Mar-2021).
 
 			try
 			{
@@ -555,8 +555,8 @@ init
 
 		vars.PatchTempBug = (Action)(() =>
 		{
-			// Stops the game from attempting to delete %TEMP% folder. More info at https://github.com/neesi/autosplitters/tree/main/LOVE_2_kuso
-			// Fills the offending function with NOPs. This is basically how the bug was fixed in official GameMaker releases.
+			// Stops a GameMaker game from attempting to delete %TEMP% folder. More info at https://github.com/neesi/autosplitters/tree/main/LOVE_2_kuso
+			// Fills the offending function with NOPs. This is essentially how the bug was fixed in official GameMaker releases.
 			// Affects GMS IDE 1.4.1760 (30-Aug-2016) ... 1.4.1773 (14-Sep-2017) and all (?) GMS2 versions up until and including GMS2 runtime 2.0.7.110 (21-Jun-2017).
 			// This GameMaker bug was fixed in GMS2 runtime 2.1.0.135 (23-Aug-2017) and later in GMS IDE 1.4.1788 (08-Feb-2018).
 
@@ -605,11 +605,11 @@ init
 							}
 						}
 					}
-
-					log("%TEMP% bug not found.");
-
-					end:;
 				}
+
+				log("%TEMP% bug not found.");
+
+				end:;
 			}
 			finally
 			{
@@ -724,4 +724,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.9.8 05-Jan-2024
+// v0.9.9 18-Jan-2024
