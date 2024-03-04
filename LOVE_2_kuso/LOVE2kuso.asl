@@ -220,7 +220,7 @@ init
 			int variableNamesCount = game.ReadValue<int>(variableNamesCountAddress);
 			long offset = (long)variableNamesBasePointer - (long)variableNamesCountAddress;
 
-			if (variableNamesCount > 0 && variableNamesCount <= 0xFFFF && (is64bit && offset == 0x10 || !is64bit && offset == 0xC))
+			if (variableNamesCount > 0 && variableNamesCount <= 0xFFFF && (is64bit && (offset == 0x8 || offset == 0x10) || !is64bit && offset == 0xC))
 			{
 				if (!variableNamesBasesFound.Any(x => x.Item1 == "VariableNames" && x.Item2 == variableNamesBasePointer))
 				{
@@ -724,4 +724,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.9.9 18-Jan-2024
+// v1.0.0 05-Mar-2024
