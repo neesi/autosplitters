@@ -78,7 +78,7 @@ init
 
 	System.Threading.Tasks.Task.Run(async () =>
 	{
-		// Resolves global GameMaker variable names to data addresses, finds the current room name.
+		// Resolves global GameMaker variable names to data addresses. Finds the current room name.
 		// For games made with GameMaker: Studio IDE 1.4.1760 (30-Aug-2016) and newer, up until and including the latest GameMaker Studio 2/GameMaker (Zeus) runtime.
 		// Does not work with 1.4.1760 YYC or 1.4.1763 YYC (06-Oct-2016).
 		// Tested on stable/LTS, VM/YYC 32-bit/64-bit (Windows only), excluding the earliest GameMaker Studio 2 runtimes.
@@ -553,6 +553,15 @@ init
 			timer.CurrentTimingMethod = TimingMethod.GameTime;
 		}
 
+		if (game.ProcessName.ToLower() == "love-classic")
+		{
+			vars.FPS = 30f;
+		}
+		else
+		{
+			vars.FPS = 60f;
+		}
+
 		current.RoomName = "";
 		vars.InitialUpdate = true;
 		vars.Ready = true;
@@ -604,7 +613,7 @@ reset
 
 gameTime
 {
-	return TimeSpan.FromSeconds(vars.FrameCount.Current / 60f);
+	return TimeSpan.FromSeconds(vars.FrameCount.Current / vars.FPS);
 }
 
 isLoading
@@ -622,4 +631,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v1.0.0 05-Mar-2024
+// v1.0.1 21-Mar-2024
