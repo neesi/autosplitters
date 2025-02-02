@@ -65,7 +65,9 @@ init
 
 			if (results.Count == vars.Targets.Count)
 			{
-				string musicName = game.ReadString(game.ReadPointer(results["MusicName"]), 255) ?? "";
+				IntPtr address = game.ReadPointer(results["MusicName"]);
+				string musicName = game.ReadString(address, 255) ?? "";
+
 				if (musicName != "")
 				{
 					vars.Watchers = new MemoryWatcherList
@@ -86,10 +88,8 @@ init
 					vars.TargetsFound = true;
 					break;
 				}
-				else
-				{
-					vars.Log("Music name must not be empty.");
-				}
+
+				vars.Log("Music name must not be empty.");
 			}
 
 			vars.Log("Retrying..");
@@ -161,4 +161,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.0.1 02-Feb-2025
+// v0.0.2 02-Feb-2025
