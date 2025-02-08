@@ -3,7 +3,6 @@
 
 	- tested on a few maps only
 	- tested steam and gog only
-	- script initialization will not complete while in a multiplayer lobby
 */
 
 state("doom") {}
@@ -11,6 +10,7 @@ state("doom_gog") {}
 
 startup
 {
+	refreshRate = 120;
 	settings.Add("gameTime", true, "Game Time :: change timing method on script initialization");
 	settings.Add("ilMode", false, "IL mode :: reset on map start, start after screen melt");
 
@@ -18,6 +18,12 @@ startup
 	{
 		print("[Doom + Doom II] " + input);
 	});
+
+	vars.Intermission = new List<string>
+	{
+		"D_INTER",
+		"D_DM2INT"
+	};
 
 	vars.Targets = new Dictionary<string, SigScanTarget>
 	{
@@ -39,15 +45,15 @@ startup
 
 	foreach (KeyValuePair<string, SigScanTarget> target in vars.Targets)
 	{
-		target.Value.OnFound = (proc, scan, result) => target.Key.Remove(target.Key.Length - 1).EndsWith("_offset") ? (IntPtr)proc.ReadValue<int>(result) : result + 0x4 + proc.ReadValue<int>(result);
+		string key = target.Key.Remove(target.Key.Length - 1);
+		target.Value.OnFound = (proc, scan, result) => key.EndsWith("_offset") ? (IntPtr)proc.ReadValue<int>(result) : result + 0x4 + proc.ReadValue<int>(result);
 	}
-
-	refreshRate = 120;
 }
 
 init
 {
 	vars.TargetsFound = false;
+	vars.AutoStarted = false;
 	vars.StartTic = 0;
 
 	vars.CancelSource = new CancellationTokenSource();
@@ -78,17 +84,24 @@ init
 			{
 				IntPtr address = game.ReadPointer(results["MusicName"]);
 				string musicName = game.ReadString(address, 255) ?? "";
+				long gameTic = game.ReadValue<long>(results["GameTic"]);
 
-				if (musicName != "")
+				if (musicName != "" || gameTic > 0)
 				{
 					vars.Watchers = new MemoryWatcherList
 					{
-						new MemoryWatcher<long>(results["GameTic"]) { Name = "GameTic" },
-						new MemoryWatcher<byte>(new DeepPointer(results["BaseAddress"], (int)results["IsInGame_offset"])) { Name = "IsInGame", FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull },
-						new StringWatcher(new DeepPointer(results["MusicName"], 0x0), 255) { Name = "MusicName" },
-						new MemoryWatcher<int>(new DeepPointer(results["BaseAddress"], (int)results["MapTic_offset"])) { Name = "MapTic", FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull },
-						new MemoryWatcher<int>(new DeepPointer(results["BaseAddress"], (int)results["GameTicSaved_offset"])) { Name = "GameTicSaved", FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull },
-						new MemoryWatcher<byte>(new DeepPointer(results["BaseAddress"], (int)results["IsMeltScreen_offset"])) { Name = "IsMeltScreen", FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull }
+						new MemoryWatcher<long>(results["GameTic"])
+						{ Name = "GameTic" },
+						new MemoryWatcher<byte>(new DeepPointer(results["BaseAddress"], (int)results["IsInGame_offset"]))
+						{ Name = "IsInGame", FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull },
+						new StringWatcher(new DeepPointer(results["MusicName"], 0x0), 255)
+						{ Name = "MusicName" },
+						new MemoryWatcher<int>(new DeepPointer(results["BaseAddress"], (int)results["MapTic_offset"]))
+						{ Name = "MapTic", FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull },
+						new MemoryWatcher<int>(new DeepPointer(results["BaseAddress"], (int)results["GameTicSaved_offset"]))
+						{ Name = "GameTicSaved", FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull },
+						new MemoryWatcher<byte>(new DeepPointer(results["BaseAddress"], (int)results["IsMeltScreen_offset"]))
+						{ Name = "IsMeltScreen", FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull }
 					};
 
 					if (settings["gameTime"])
@@ -100,7 +113,7 @@ init
 					break;
 				}
 
-				vars.Log("Music name must not be empty.");
+				vars.Log("MusicName = " + "\"" + musicName + "\"" + " GameTic = " + gameTic);
 			}
 
 			vars.Log("Retrying..");
@@ -120,6 +133,11 @@ update
 
 	vars.Watchers.UpdateAll(game);
 
+	if (vars.Watchers["GameTic"].Current < vars.Watchers["GameTic"].Old)
+	{
+		vars.StartTic = 0;
+	}
+
 	if (vars.Watchers["MusicName"].Changed)
 	{
 		vars.Log("\"" + vars.Watchers["MusicName"].Old + "\"" + " -> " + "\"" + vars.Watchers["MusicName"].Current + "\"");
@@ -128,33 +146,40 @@ update
 
 start
 {
-	if (vars.Watchers["IsInGame"].Current == 1 && (!settings["ilMode"] && vars.Watchers["IsMeltScreen"].Current == 1 && vars.Watchers["IsMeltScreen"].Old == 0 ||
+	if (settings.StartEnabled && vars.Watchers["IsInGame"].Current == 1 &&
+	(!settings["ilMode"] && vars.Watchers["IsMeltScreen"].Current == 1 && vars.Watchers["IsMeltScreen"].Old == 0 && !vars.Intermission.Contains(vars.Watchers["MusicName"].Current.ToUpper()) ||
 	vars.Watchers["MapTic"].Current > vars.Watchers["MapTic"].Old && vars.Watchers["MapTic"].Current > 1 && vars.Watchers["MapTic"].Current < 10 && vars.Watchers["MapTic"].Old > 0))
 	{
-		vars.StartTic = vars.Watchers["GameTicSaved"].Current;
+		vars.AutoStarted = true;
 		return true;
 	}
+}
+
+onStart
+{
+	vars.StartTic = vars.AutoStarted ? vars.Watchers["GameTicSaved"].Current : vars.Watchers["GameTic"].Current;
 }
 
 split
 {
-	return vars.Watchers["MusicName"].Current.ToUpper() != vars.Watchers["MusicName"].Old.ToUpper() &&
-	(vars.Watchers["MusicName"].Current.ToUpper() == "D_INTER" || vars.Watchers["MusicName"].Current.ToUpper() == "D_DM2INT");
+	return vars.Watchers["MusicName"].Current.ToUpper() != vars.Watchers["MusicName"].Old.ToUpper() && vars.Intermission.Contains(vars.Watchers["MusicName"].Current.ToUpper());
 }
 
 reset
 {
-	if (vars.Watchers["IsInGame"].Current == 0 ||
-	settings["ilMode"] && vars.Watchers["MapTic"].Current > 0 && vars.Watchers["MapTic"].Current < 10 && (vars.Watchers["MapTic"].Current < vars.Watchers["MapTic"].Old || vars.Watchers["MapTic"].Old == 0))
-	{
-		vars.StartTic = 0;
-		return true;
-	}
+	return vars.Watchers["IsInGame"].Current == 0 ||
+	settings["ilMode"] && vars.Watchers["MapTic"].Current > 0 && vars.Watchers["MapTic"].Current < 10 && (vars.Watchers["MapTic"].Current < vars.Watchers["MapTic"].Old || vars.Watchers["MapTic"].Old == 0);
+}
+
+onReset
+{
+	vars.AutoStarted = false;
+	vars.StartTic = 0;
 }
 
 gameTime
 {
-	return settings["ilMode"] ? TimeSpan.FromSeconds(vars.Watchers["MapTic"].Current / 35f) : TimeSpan.FromSeconds((vars.Watchers["GameTic"].Current - vars.StartTic) / 35f);
+	return settings["ilMode"] ? TimeSpan.FromSeconds(vars.Watchers["MapTic"].Current / 35.0f) : TimeSpan.FromSeconds((vars.Watchers["GameTic"].Current - vars.StartTic) / 35.0f);
 }
 
 isLoading
@@ -172,4 +197,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.0.3 04-Feb-2025
+// v0.0.4 08-Feb-2025
