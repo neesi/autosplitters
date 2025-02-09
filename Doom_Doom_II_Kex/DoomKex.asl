@@ -1,16 +1,10 @@
-/*
-	Doom + Doom II Kex
-
-	- tested on a few maps only
-	- tested steam and gog only
-*/
-
 state("doom") {}
+state("doom_egs") {}
 state("doom_gog") {}
+state("osiris2_WinStore") {}
 
 startup
 {
-	refreshRate = 120;
 	settings.Add("gameTime", true, "Game Time :: change timing method on script initialization");
 	settings.Add("ilMode", false, "IL mode :: reset on map start, start after screen melt");
 
@@ -197,4 +191,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.0.4 08-Feb-2025
+// v0.0.5 09-Feb-2025
