@@ -21,26 +21,26 @@ startup
 
 	vars.Targets = new Dictionary<string, SigScanTarget>
 	{
-		{ "BaseAddress1", new SigScanTarget(3, "48 8B 05 ?? ?? ?? ?? 33 F6 89 35 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? 48 85 C0") },
-		{ "BaseAddress2", new SigScanTarget(11, "48 8B CF E8 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? 48 85 C0") },
-		{ "GameTic1", new SigScanTarget(6, "41 8B D1 4C 89 0D ?? ?? ?? ?? 48 ?? ?? ?? E9 ?? ?? ?? ?? CC") },
-		{ "GameTic2", new SigScanTarget(22, "48 89 05 ?? ?? ?? ?? 8B 05 ?? ?? ?? ?? 3B 05 ?? ?? ?? ?? 48 89 1D") },
-		{ "IsInGame_offset1", new SigScanTarget(22, "E8 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 4C 8B 15 ?? ?? ?? ?? 40 88") },
-		{ "IsInGame_offset2", new SigScanTarget(20, "33 C0 89 42 ?? 48 8B 93 ?? ?? ?? ?? 88 83 ?? ?? ?? ?? 88 83") },
-		{ "MusicName1", new SigScanTarget(7, "84 C0 ?? ?? 4C 8B 0D ?? ?? ?? ?? 4D 3B CF ?? ?? ?? ?? ?? ?? 4D") },
-		{ "MusicName2", new SigScanTarget(19, "48 85 DB ?? ?? ?? ?? ?? ?? 48 8D 15 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? E8") },
-		{ "MapTic_offset1", new SigScanTarget(15, "FF 80 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 8B ?? ?? ?? ?? ?? B0 01") },
-		{ "MapTic_offset2", new SigScanTarget(3, "48 63 88 ?? ?? ?? ?? 48 69 D9 ?? ?? ?? ?? 83 3D ?? ?? ?? ?? 01") },
-		{ "GameTicSaved_offset1", new SigScanTarget(2, "89 87 ?? ?? ?? ?? 89 9F ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 89") },
-		{ "GameTicSaved_offset2", new SigScanTarget(17, "44 8B 80 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? 44 2B 80 ?? ?? ?? ?? 8B 90") },
-		{ "IsMeltScreen_offset1", new SigScanTarget(2, "C6 83 ?? ?? ?? ?? 00 E8 ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? E8") },
-		{ "IsMeltScreen_offset2", new SigScanTarget(16, "8B 83 ?? ?? ?? ?? 8B F8 2B BB ?? ?? ?? ?? 80 BB ?? ?? ?? ?? 00 8B AB") }
+		{ "baseAddress1", new SigScanTarget(3, "48 8B 05 ?? ?? ?? ?? 33 F6 89 35 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? 48 85 C0") },
+		{ "baseAddress2", new SigScanTarget(11, "48 8B CF E8 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? 48 85 C0") },
+		{ "gameTic1", new SigScanTarget(6, "41 8B D1 4C 89 0D ?? ?? ?? ?? 48 ?? ?? ?? E9 ?? ?? ?? ?? CC") },
+		{ "gameTic2", new SigScanTarget(22, "48 89 05 ?? ?? ?? ?? 8B 05 ?? ?? ?? ?? 3B 05 ?? ?? ?? ?? 48 89 1D") },
+		{ "isInGameOffset1", new SigScanTarget(22, "E8 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 4C 8B 15 ?? ?? ?? ?? 40 88") },
+		{ "isInGameOffset2", new SigScanTarget(20, "33 C0 89 42 ?? 48 8B 93 ?? ?? ?? ?? 88 83 ?? ?? ?? ?? 88 83") },
+		{ "musicName1", new SigScanTarget(7, "84 C0 ?? ?? 4C 8B 0D ?? ?? ?? ?? 4D 3B CF ?? ?? ?? ?? ?? ?? 4D") },
+		{ "musicName2", new SigScanTarget(19, "48 85 DB ?? ?? ?? ?? ?? ?? 48 8D 15 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? E8") },
+		{ "mapTicOffset1", new SigScanTarget(15, "FF 80 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 8B ?? ?? ?? ?? ?? B0 01") },
+		{ "mapTicOffset2", new SigScanTarget(3, "48 63 88 ?? ?? ?? ?? 48 69 D9 ?? ?? ?? ?? 83 3D ?? ?? ?? ?? 01") },
+		{ "gameTicSavedOffset1", new SigScanTarget(2, "89 87 ?? ?? ?? ?? 89 9F ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 89") },
+		{ "gameTicSavedOffset2", new SigScanTarget(17, "44 8B 80 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? 44 2B 80 ?? ?? ?? ?? 8B 90") },
+		{ "isMeltScreenOffset1", new SigScanTarget(2, "C6 83 ?? ?? ?? ?? 00 E8 ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? E8") },
+		{ "isMeltScreenOffset2", new SigScanTarget(16, "8B 83 ?? ?? ?? ?? 8B F8 2B BB ?? ?? ?? ?? 80 BB ?? ?? ?? ?? 00 8B AB") }
 	};
 
 	foreach (KeyValuePair<string, SigScanTarget> target in vars.Targets)
 	{
 		string key = target.Key.Remove(target.Key.Length - 1);
-		target.Value.OnFound = (proc, scan, result) => key.EndsWith("_offset") ? (IntPtr)proc.ReadValue<int>(result) : result + 0x4 + proc.ReadValue<int>(result);
+		target.Value.OnFound = (proc, scan, result) => key.EndsWith("Offset") ? (IntPtr)proc.ReadValue<int>(result) : result + 0x4 + proc.ReadValue<int>(result);
 	}
 }
 
@@ -55,7 +55,7 @@ init
 
 	System.Threading.Tasks.Task.Run(async () =>
 	{
-		while (true)
+		while (!token.IsCancellationRequested)
 		{
 			var scanner = new SignatureScanner(game, modules.First().BaseAddress, modules.First().ModuleMemorySize);
 			var results = new Dictionary<string, IntPtr>();
@@ -76,26 +76,26 @@ init
 
 			if (results.Count == 7)
 			{
-				IntPtr address = game.ReadPointer(results["MusicName"]);
-				string musicName = game.ReadString(address, 255) ?? "";
-				long gameTic = game.ReadValue<long>(results["GameTic"]);
+				IntPtr address = game.ReadPointer(results["musicName"]);
+				string musicName = game.ReadString(address, 128);
+				long gameTic = game.ReadValue<long>(results["gameTic"]);
 
-				if (musicName != "" || gameTic > 0)
+				if (!string.IsNullOrEmpty(musicName) || (musicName != null && gameTic > 0))
 				{
 					vars.Watchers = new MemoryWatcherList
 					{
-						new MemoryWatcher<long>(results["GameTic"])
-						{ Name = "GameTic" },
-						new MemoryWatcher<byte>(new DeepPointer(results["BaseAddress"], (int)results["IsInGame_offset"]))
-						{ Name = "IsInGame", FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull },
-						new StringWatcher(new DeepPointer(results["MusicName"], 0x0), 255)
-						{ Name = "MusicName" },
-						new MemoryWatcher<int>(new DeepPointer(results["BaseAddress"], (int)results["MapTic_offset"]))
-						{ Name = "MapTic", FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull },
-						new MemoryWatcher<int>(new DeepPointer(results["BaseAddress"], (int)results["GameTicSaved_offset"]))
-						{ Name = "GameTicSaved", FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull },
-						new MemoryWatcher<byte>(new DeepPointer(results["BaseAddress"], (int)results["IsMeltScreen_offset"]))
-						{ Name = "IsMeltScreen", FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull }
+						new MemoryWatcher<long>(results["gameTic"])
+						{ Name = "gameTic" },
+						new MemoryWatcher<byte>(new DeepPointer(results["baseAddress"], (int)results["isInGameOffset"]))
+						{ Name = "isInGame", FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull },
+						new StringWatcher(new DeepPointer(results["musicName"], 0x0), 128)
+						{ Name = "musicName" },
+						new MemoryWatcher<int>(new DeepPointer(results["baseAddress"], (int)results["mapTicOffset"]))
+						{ Name = "mapTic", FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull },
+						new MemoryWatcher<int>(new DeepPointer(results["baseAddress"], (int)results["gameTicSavedOffset"]))
+						{ Name = "gameTicSaved", FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull },
+						new MemoryWatcher<byte>(new DeepPointer(results["baseAddress"], (int)results["isMeltScreenOffset"]))
+						{ Name = "isMeltScreen", FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull }
 					};
 
 					if (settings["gameTime"])
@@ -107,7 +107,7 @@ init
 					break;
 				}
 
-				vars.Log("MusicName = " + "\"" + musicName + "\"" + " GameTic = " + gameTic);
+				vars.Log("musicName = " + "\"" + musicName + "\"" + " gameTic = " + gameTic);
 			}
 
 			vars.Log("Retrying..");
@@ -127,22 +127,22 @@ update
 
 	vars.Watchers.UpdateAll(game);
 
-	if (vars.Watchers["GameTic"].Current < vars.Watchers["GameTic"].Old)
+	if (vars.Watchers["gameTic"].Current < vars.Watchers["gameTic"].Old)
 	{
 		vars.StartTic = 0;
 	}
 
-	if (vars.Watchers["MusicName"].Changed)
+	if (vars.Watchers["musicName"].Changed)
 	{
-		vars.Log("\"" + vars.Watchers["MusicName"].Old + "\"" + " -> " + "\"" + vars.Watchers["MusicName"].Current + "\"");
+		vars.Log("\"" + vars.Watchers["musicName"].Old + "\"" + " -> " + "\"" + vars.Watchers["musicName"].Current + "\"");
 	}
 }
 
 start
 {
-	if (settings.StartEnabled && vars.Watchers["IsInGame"].Current == 1 &&
-	(!settings["ilMode"] && vars.Watchers["IsMeltScreen"].Current == 1 && vars.Watchers["IsMeltScreen"].Old == 0 && !vars.Intermission.Contains(vars.Watchers["MusicName"].Current.ToUpper()) ||
-	vars.Watchers["MapTic"].Current > vars.Watchers["MapTic"].Old && vars.Watchers["MapTic"].Current > 1 && vars.Watchers["MapTic"].Current < 10 && vars.Watchers["MapTic"].Old > 0))
+	if (settings.StartEnabled && vars.Watchers["isInGame"].Current == 1 &&
+	(!settings["ilMode"] && vars.Watchers["isMeltScreen"].Current == 1 && vars.Watchers["isMeltScreen"].Old == 0 && !vars.Intermission.Contains(vars.Watchers["musicName"].Current.ToUpper()) ||
+	vars.Watchers["mapTic"].Current > vars.Watchers["mapTic"].Old && vars.Watchers["mapTic"].Current > 1 && vars.Watchers["mapTic"].Current < 10 && vars.Watchers["mapTic"].Old > 0))
 	{
 		vars.AutoStarted = true;
 		return true;
@@ -151,18 +151,18 @@ start
 
 onStart
 {
-	vars.StartTic = vars.AutoStarted ? vars.Watchers["GameTicSaved"].Current : vars.Watchers["GameTic"].Current;
+	vars.StartTic = vars.AutoStarted ? vars.Watchers["gameTicSaved"].Current : vars.Watchers["gameTic"].Current;
 }
 
 split
 {
-	return vars.Watchers["MusicName"].Current.ToUpper() != vars.Watchers["MusicName"].Old.ToUpper() && vars.Intermission.Contains(vars.Watchers["MusicName"].Current.ToUpper());
+	return vars.Watchers["musicName"].Current.ToUpper() != vars.Watchers["musicName"].Old.ToUpper() && vars.Intermission.Contains(vars.Watchers["musicName"].Current.ToUpper());
 }
 
 reset
 {
-	return vars.Watchers["IsInGame"].Current == 0 ||
-	settings["ilMode"] && vars.Watchers["MapTic"].Current > 0 && vars.Watchers["MapTic"].Current < 10 && (vars.Watchers["MapTic"].Current < vars.Watchers["MapTic"].Old || vars.Watchers["MapTic"].Old == 0);
+	return vars.Watchers["isInGame"].Current == 0 ||
+	settings["ilMode"] && vars.Watchers["mapTic"].Current > 0 && vars.Watchers["mapTic"].Current < 10 && (vars.Watchers["mapTic"].Current < vars.Watchers["mapTic"].Old || vars.Watchers["mapTic"].Old == 0);
 }
 
 onReset
@@ -173,7 +173,7 @@ onReset
 
 gameTime
 {
-	return settings["ilMode"] ? TimeSpan.FromSeconds(vars.Watchers["MapTic"].Current / 35.0f) : TimeSpan.FromSeconds((vars.Watchers["GameTic"].Current - vars.StartTic) / 35.0f);
+	return settings["ilMode"] ? TimeSpan.FromSeconds(vars.Watchers["mapTic"].Current / 35.0f) : TimeSpan.FromSeconds((vars.Watchers["gameTic"].Current - vars.StartTic) / 35.0f);
 }
 
 isLoading
@@ -191,4 +191,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.0.5 09-Feb-2025
+// v0.0.6 10-Feb-2025
