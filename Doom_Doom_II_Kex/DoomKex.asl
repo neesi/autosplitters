@@ -13,6 +13,12 @@ startup
 		print("[Doom + Doom II] " + input);
 	});
 
+	vars.Title = new List<string>
+	{
+		"D_INTRO",
+		"D_DM2TTL"
+	};
+
 	vars.Intermission = new List<string>
 	{
 		"D_INTER",
@@ -23,16 +29,14 @@ startup
 	{
 		{ "baseAddress1", new SigScanTarget(3, "48 8B 05 ?? ?? ?? ?? 33 F6 89 35 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? 48 85 C0") },
 		{ "baseAddress2", new SigScanTarget(11, "48 8B CF E8 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? 48 85 C0") },
-		{ "gameTic1", new SigScanTarget(6, "41 8B D1 4C 89 0D ?? ?? ?? ?? 48 ?? ?? ?? E9 ?? ?? ?? ?? CC") },
-		{ "gameTic2", new SigScanTarget(22, "48 89 05 ?? ?? ?? ?? 8B 05 ?? ?? ?? ?? 3B 05 ?? ?? ?? ?? 48 89 1D") },
+		{ "gameTicPauseOnMeltOffset1", new SigScanTarget(8, "8B 90 ?? ?? ?? ?? 89 90 ?? ?? ?? ?? 8B CA 2B 88 ?? ?? ?? ?? 89 88") },
+		{ "gameTicPauseOnMeltOffset2", new SigScanTarget(2, "8B 88 ?? ?? ?? ?? 89 88 ?? ?? ?? ?? ?? ?? 44 89 A0 ?? ?? ?? ?? 85 D2") },
 		{ "isInGameOffset1", new SigScanTarget(22, "E8 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 4C 8B 15 ?? ?? ?? ?? 40 88") },
 		{ "isInGameOffset2", new SigScanTarget(20, "33 C0 89 42 ?? 48 8B 93 ?? ?? ?? ?? 88 83 ?? ?? ?? ?? 88 83") },
 		{ "musicName1", new SigScanTarget(7, "84 C0 ?? ?? 4C 8B 0D ?? ?? ?? ?? 4D 3B CF ?? ?? ?? ?? ?? ?? 4D") },
 		{ "musicName2", new SigScanTarget(19, "48 85 DB ?? ?? ?? ?? ?? ?? 48 8D 15 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? E8") },
 		{ "mapTicOffset1", new SigScanTarget(15, "FF 80 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 8B ?? ?? ?? ?? ?? B0 01") },
 		{ "mapTicOffset2", new SigScanTarget(3, "48 63 88 ?? ?? ?? ?? 48 69 D9 ?? ?? ?? ?? 83 3D ?? ?? ?? ?? 01") },
-		{ "gameTicSavedOffset1", new SigScanTarget(2, "89 87 ?? ?? ?? ?? 89 9F ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 89") },
-		{ "gameTicSavedOffset2", new SigScanTarget(17, "44 8B 80 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? 44 2B 80 ?? ?? ?? ?? 8B 90") },
 		{ "isMeltScreenOffset1", new SigScanTarget(2, "C6 83 ?? ?? ?? ?? 00 E8 ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? E8") },
 		{ "isMeltScreenOffset2", new SigScanTarget(16, "8B 83 ?? ?? ?? ?? 8B F8 2B BB ?? ?? ?? ?? 80 BB ?? ?? ?? ?? 00 8B AB") }
 	};
@@ -47,7 +51,6 @@ startup
 init
 {
 	vars.TargetsFound = false;
-	vars.AutoStarted = false;
 	vars.StartTic = 0;
 
 	vars.CancelSource = new CancellationTokenSource();
@@ -74,28 +77,35 @@ init
 				}
 			}
 
-			if (results.Count == 7)
+			if (results.Count == 6)
 			{
-				IntPtr address = game.ReadPointer(results["musicName"]);
-				string musicName = game.ReadString(address, 128);
-				long gameTic = game.ReadValue<long>(results["gameTic"]);
-
-				if (!string.IsNullOrEmpty(musicName) || (musicName != null && gameTic > 0))
+				string musicName = new DeepPointer(results["musicName"], 0x0).DerefString(game, 128);
+				if (!string.IsNullOrEmpty(musicName))
 				{
 					vars.Watchers = new MemoryWatcherList
 					{
-						new MemoryWatcher<long>(results["gameTic"])
-						{ Name = "gameTic" },
+						new MemoryWatcher<int>(new DeepPointer(results["baseAddress"], (int)results["gameTicPauseOnMeltOffset"]))
+						{
+							Name = "gameTicPauseOnMelt"
+						},
 						new MemoryWatcher<byte>(new DeepPointer(results["baseAddress"], (int)results["isInGameOffset"]))
-						{ Name = "isInGame", FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull },
+						{
+							Name = "isInGame"
+						},
 						new StringWatcher(new DeepPointer(results["musicName"], 0x0), 128)
-						{ Name = "musicName" },
+						{
+							Name = "musicName"
+						},
 						new MemoryWatcher<int>(new DeepPointer(results["baseAddress"], (int)results["mapTicOffset"]))
-						{ Name = "mapTic", FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull },
-						new MemoryWatcher<int>(new DeepPointer(results["baseAddress"], (int)results["gameTicSavedOffset"]))
-						{ Name = "gameTicSaved", FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull },
+						{
+							Name = "mapTic",
+							FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull
+						},
 						new MemoryWatcher<byte>(new DeepPointer(results["baseAddress"], (int)results["isMeltScreenOffset"]))
-						{ Name = "isMeltScreen", FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull }
+						{
+							Name = "isMeltScreen",
+							FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull
+						}
 					};
 
 					if (settings["gameTime"])
@@ -107,7 +117,7 @@ init
 					break;
 				}
 
-				vars.Log("musicName = " + "\"" + musicName + "\"" + " gameTic = " + gameTic);
+				vars.Log("Music name must not be null or empty.");
 			}
 
 			vars.Log("Retrying..");
@@ -127,7 +137,7 @@ update
 
 	vars.Watchers.UpdateAll(game);
 
-	if (vars.Watchers["gameTic"].Current < vars.Watchers["gameTic"].Old)
+	if (vars.Watchers["gameTicPauseOnMelt"].Current < vars.Watchers["gameTicPauseOnMelt"].Old && vars.Watchers["mapTic"].Current == 0 && vars.Watchers["isMeltScreen"].Current == 0)
 	{
 		vars.StartTic = 0;
 	}
@@ -140,18 +150,14 @@ update
 
 start
 {
-	if (settings.StartEnabled && vars.Watchers["isInGame"].Current == 1 &&
+	return settings.StartEnabled && vars.Watchers["isInGame"].Current == 1 &&
 	(!settings["ilMode"] && vars.Watchers["isMeltScreen"].Current == 1 && vars.Watchers["isMeltScreen"].Old == 0 && !vars.Intermission.Contains(vars.Watchers["musicName"].Current.ToUpper()) ||
-	vars.Watchers["mapTic"].Current > vars.Watchers["mapTic"].Old && vars.Watchers["mapTic"].Current > 1 && vars.Watchers["mapTic"].Current < 10 && vars.Watchers["mapTic"].Old > 0))
-	{
-		vars.AutoStarted = true;
-		return true;
-	}
+	vars.Watchers["mapTic"].Current > vars.Watchers["mapTic"].Old && vars.Watchers["mapTic"].Current > 1 && vars.Watchers["mapTic"].Current < 10 && vars.Watchers["mapTic"].Old > 0);
 }
 
 onStart
 {
-	vars.StartTic = vars.AutoStarted ? vars.Watchers["gameTicSaved"].Current : vars.Watchers["gameTic"].Current;
+	vars.StartTic = vars.Watchers["gameTicPauseOnMelt"].Current;
 }
 
 split
@@ -161,19 +167,19 @@ split
 
 reset
 {
-	return vars.Watchers["isInGame"].Current == 0 ||
+	return vars.Watchers["isInGame"].Current == 0 && vars.Title.Contains(vars.Watchers["musicName"].Current.ToUpper()) ||
+	vars.Watchers["musicName"].Current == "" && vars.Watchers["mapTic"].Current == 0 && vars.Watchers["isMeltScreen"].Current == 0 ||
 	settings["ilMode"] && vars.Watchers["mapTic"].Current > 0 && vars.Watchers["mapTic"].Current < 10 && (vars.Watchers["mapTic"].Current < vars.Watchers["mapTic"].Old || vars.Watchers["mapTic"].Old == 0);
 }
 
 onReset
 {
-	vars.AutoStarted = false;
 	vars.StartTic = 0;
 }
 
 gameTime
 {
-	return settings["ilMode"] ? TimeSpan.FromSeconds(vars.Watchers["mapTic"].Current / 35.0f) : TimeSpan.FromSeconds((vars.Watchers["gameTic"].Current - vars.StartTic) / 35.0f);
+	return settings["ilMode"] ? TimeSpan.FromSeconds(vars.Watchers["mapTic"].Current / 35.0f) : TimeSpan.FromSeconds((vars.Watchers["gameTicPauseOnMelt"].Current - vars.StartTic) / 35.0f);
 }
 
 isLoading
@@ -191,4 +197,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.0.6 10-Feb-2025
+// v0.0.7 14-Feb-2025
