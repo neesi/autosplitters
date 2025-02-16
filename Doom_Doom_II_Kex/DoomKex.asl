@@ -37,6 +37,8 @@ startup
 		{ "musicName2", new SigScanTarget(19, "48 85 DB ?? ?? ?? ?? ?? ?? 48 8D 15 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? E8") },
 		{ "mapTicOffset1", new SigScanTarget(15, "FF 80 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 8B ?? ?? ?? ?? ?? B0 01") },
 		{ "mapTicOffset2", new SigScanTarget(3, "48 63 88 ?? ?? ?? ?? 48 69 D9 ?? ?? ?? ?? 83 3D ?? ?? ?? ?? 01") },
+		{ "gameTicSavedOffset1", new SigScanTarget(2, "89 87 ?? ?? ?? ?? 89 9F ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 89") },
+		{ "gameTicSavedOffset2", new SigScanTarget(17, "44 8B 80 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? 44 2B 80 ?? ?? ?? ?? 8B 90") },
 		{ "isMeltScreenOffset1", new SigScanTarget(2, "C6 83 ?? ?? ?? ?? 00 E8 ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? E8") },
 		{ "isMeltScreenOffset2", new SigScanTarget(16, "8B 83 ?? ?? ?? ?? 8B F8 2B BB ?? ?? ?? ?? 80 BB ?? ?? ?? ?? 00 8B AB") }
 	};
@@ -51,6 +53,7 @@ startup
 init
 {
 	vars.TargetsFound = false;
+	vars.AutoStarted = false;
 	vars.StartTic = 0;
 
 	vars.CancelSource = new CancellationTokenSource();
@@ -77,7 +80,7 @@ init
 				}
 			}
 
-			if (results.Count == 6)
+			if (results.Count == 7)
 			{
 				string musicName = new DeepPointer(results["musicName"], 0x0).DerefString(game, 128);
 				if (!string.IsNullOrEmpty(musicName))
@@ -99,6 +102,11 @@ init
 						new MemoryWatcher<int>(new DeepPointer(results["baseAddress"], (int)results["mapTicOffset"]))
 						{
 							Name = "mapTic",
+							FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull
+						},
+						new MemoryWatcher<int>(new DeepPointer(results["baseAddress"], (int)results["gameTicSavedOffset"]))
+						{
+							Name = "gameTicSaved",
 							FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull
 						},
 						new MemoryWatcher<byte>(new DeepPointer(results["baseAddress"], (int)results["isMeltScreenOffset"]))
@@ -137,7 +145,7 @@ update
 
 	vars.Watchers.UpdateAll(game);
 
-	if (vars.Watchers["gameTicPauseOnMelt"].Current < vars.Watchers["gameTicPauseOnMelt"].Old && vars.Watchers["mapTic"].Current == 0 && vars.Watchers["isMeltScreen"].Current == 0)
+	if (vars.Watchers["gameTicPauseOnMelt"].Current < vars.Watchers["gameTicPauseOnMelt"].Old && vars.Watchers["mapTic"].Current == 0 && vars.Watchers["gameTicSaved"].Current == 0)
 	{
 		vars.StartTic = 0;
 	}
@@ -150,14 +158,18 @@ update
 
 start
 {
-	return settings.StartEnabled && vars.Watchers["isInGame"].Current == 1 &&
+	if (settings.StartEnabled && vars.Watchers["isInGame"].Current == 1 &&
 	(!settings["ilMode"] && vars.Watchers["isMeltScreen"].Current == 1 && vars.Watchers["isMeltScreen"].Old == 0 && !vars.Intermission.Contains(vars.Watchers["musicName"].Current.ToUpper()) ||
-	vars.Watchers["mapTic"].Current > vars.Watchers["mapTic"].Old && vars.Watchers["mapTic"].Current > 1 && vars.Watchers["mapTic"].Current < 10 && vars.Watchers["mapTic"].Old > 0);
+	vars.Watchers["mapTic"].Current > vars.Watchers["mapTic"].Old && vars.Watchers["mapTic"].Current > 1 && vars.Watchers["mapTic"].Current < 10 && vars.Watchers["mapTic"].Old > 0))
+	{
+		vars.AutoStarted = true;
+		return true;
+	}
 }
 
 onStart
 {
-	vars.StartTic = vars.Watchers["gameTicPauseOnMelt"].Current;
+	vars.StartTic = vars.AutoStarted ? vars.Watchers["gameTicSaved"].Current : vars.Watchers["gameTicPauseOnMelt"].Current;
 }
 
 split
@@ -168,12 +180,13 @@ split
 reset
 {
 	return vars.Watchers["isInGame"].Current == 0 && vars.Title.Contains(vars.Watchers["musicName"].Current.ToUpper()) ||
-	vars.Watchers["musicName"].Current == "" && vars.Watchers["mapTic"].Current == 0 && vars.Watchers["isMeltScreen"].Current == 0 ||
+	vars.Watchers["musicName"].Current == "" && vars.Watchers["mapTic"].Current == 0 && vars.Watchers["gameTicSaved"].Current == 0 ||
 	settings["ilMode"] && vars.Watchers["mapTic"].Current > 0 && vars.Watchers["mapTic"].Current < 10 && (vars.Watchers["mapTic"].Current < vars.Watchers["mapTic"].Old || vars.Watchers["mapTic"].Old == 0);
 }
 
 onReset
 {
+	vars.AutoStarted = false;
 	vars.StartTic = 0;
 }
 
@@ -197,4 +210,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.0.7 14-Feb-2025
+// v0.0.8 16-Feb-2025
