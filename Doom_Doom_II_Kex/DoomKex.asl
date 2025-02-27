@@ -5,8 +5,11 @@ state("osiris2_WinStore") {}
 
 startup
 {
-	settings.Add("gameTime", true, "Game Time :: change timing method on script initialization");
+	settings.Add("gameTime", true, "Game Time :: change LiveSplit timing method on script initialization");
+	settings.Add("floatingSecond", false, "Solo Multi-Game / Co-Op Multi-Ep mode :: must enable for these runs");
 	settings.Add("ilMode", false, "IL mode :: reset on map start, start after screen melt");
+	settings.SetToolTip("floatingSecond", "inaccurate timer (± 1 tic / run), disables auto reset");
+	settings.SetToolTip("ilMode", "overrides Solo Multi-Game / Co-Op Multi-Ep mode");
 
 	vars.Log = (Action<object>)(input =>
 	{
@@ -29,6 +32,10 @@ startup
 	{
 		{ "baseAddress1", new SigScanTarget(3, "48 8B 05 ?? ?? ?? ?? 33 F6 89 35 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? 48 85 C0") },
 		{ "baseAddress2", new SigScanTarget(11, "48 8B CF E8 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? 48 85 C0") },
+		{ "floatingSecond1", new SigScanTarget(15, "41 57 48 81 EC ?? ?? ?? ?? 48 8B F9 48 8B 2D ?? ?? ?? ?? 48 85 ED") },
+		{ "floatingSecond2", new SigScanTarget(17, "0F 57 ?? 0F 57 ?? 48 8B CB E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 48 85 C9") },
+		{ "gameTic1", new SigScanTarget(6, "41 8B D1 4C 89 0D ?? ?? ?? ?? 48 ?? ?? ?? E9 ?? ?? ?? ?? CC") },
+		{ "gameTic2", new SigScanTarget(22, "48 89 05 ?? ?? ?? ?? 8B 05 ?? ?? ?? ?? 3B 05 ?? ?? ?? ?? 48 89 1D") },
 		{ "gameTicPauseOnMeltOffset1", new SigScanTarget(8, "8B 90 ?? ?? ?? ?? 89 90 ?? ?? ?? ?? 8B CA 2B 88 ?? ?? ?? ?? 89 88") },
 		{ "gameTicPauseOnMeltOffset2", new SigScanTarget(2, "8B 88 ?? ?? ?? ?? 89 88 ?? ?? ?? ?? ?? ?? 44 89 A0 ?? ?? ?? ?? 85 D2") },
 		{ "isInGameOffset1", new SigScanTarget(22, "E8 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 4C 8B 15 ?? ?? ?? ?? 40 88") },
@@ -53,8 +60,11 @@ startup
 init
 {
 	vars.TargetsFound = false;
-	vars.AutoStarted = false;
+	vars.AutoStart = false;
+	vars.AutoSplit = false;
+	vars.FloatingSecondToStartTic = 0;
 	vars.StartTic = 0;
+	vars.LateSplitTics = 0;
 
 	vars.CancelSource = new CancellationTokenSource();
 	CancellationToken token = vars.CancelSource.Token;
@@ -80,13 +90,23 @@ init
 				}
 			}
 
-			if (results.Count == 7)
+			if (results.Count == 9)
 			{
 				string musicName = new DeepPointer(results["musicName"], 0x0).DerefString(game, 128);
-				if (!string.IsNullOrEmpty(musicName))
+				double floatingSecond = new DeepPointer(results["floatingSecond"], 0x0).Deref<double>(game);
+
+				if (!string.IsNullOrEmpty(musicName) || floatingSecond > 20.0d)
 				{
 					vars.Watchers = new MemoryWatcherList
 					{
+						new MemoryWatcher<double>(new DeepPointer(results["floatingSecond"], 0x0))
+						{
+							Name = "floatingSecond"
+						},
+						new MemoryWatcher<long>(results["gameTic"])
+						{
+							Name = "gameTic"
+						},
 						new MemoryWatcher<int>(new DeepPointer(results["baseAddress"], (int)results["gameTicPauseOnMeltOffset"]))
 						{
 							Name = "gameTicPauseOnMelt"
@@ -125,13 +145,13 @@ init
 					break;
 				}
 
-				vars.Log("Music name must not be null or empty.");
+				vars.Log("musicName = " + "\"" + musicName + "\"" + " floatingSecond = " + floatingSecond);
 			}
 
 			vars.Log("Retrying..");
 			await System.Threading.Tasks.Task.Delay(2000, token);
 		}
-		
+
 		vars.Log("Task end.");
 	});
 }
@@ -162,37 +182,65 @@ start
 	(!settings["ilMode"] && vars.Watchers["isMeltScreen"].Current == 1 && vars.Watchers["isMeltScreen"].Old == 0 && !vars.Intermission.Contains(vars.Watchers["musicName"].Current.ToUpper()) ||
 	vars.Watchers["mapTic"].Current > vars.Watchers["mapTic"].Old && vars.Watchers["mapTic"].Current > 1 && vars.Watchers["mapTic"].Current < 10 && vars.Watchers["mapTic"].Old > 0))
 	{
-		vars.AutoStarted = true;
+		vars.AutoStart = true;
 		return true;
 	}
 }
 
 onStart
 {
-	vars.StartTic = vars.AutoStarted ? vars.Watchers["gameTicSaved"].Current : vars.Watchers["gameTicPauseOnMelt"].Current;
+	long lateStartTics = vars.Watchers["gameTic"].Current - vars.Watchers["gameTicSaved"].Current;
+	vars.FloatingSecondToStartTic = (long)((vars.Watchers["floatingSecond"].Current * 35.0d) - lateStartTics);
+	vars.StartTic = vars.AutoStart ? vars.Watchers["gameTicSaved"].Current : vars.Watchers["gameTicPauseOnMelt"].Current;
 }
 
 split
 {
-	return vars.Watchers["musicName"].Current.ToUpper() != vars.Watchers["musicName"].Old.ToUpper() && vars.Intermission.Contains(vars.Watchers["musicName"].Current.ToUpper());
+	return vars.AutoSplit;
+}
+
+onSplit
+{
+	vars.LateSplitTics = 0;
+	vars.AutoSplit = false;
 }
 
 reset
 {
-	return vars.Watchers["isInGame"].Current == 0 && vars.Title.Contains(vars.Watchers["musicName"].Current.ToUpper()) ||
+	return (settings["ilMode"] || !settings["floatingSecond"]) &&
+	(vars.Watchers["isInGame"].Current == 0 && vars.Title.Contains(vars.Watchers["musicName"].Current.ToUpper()) ||
 	vars.Watchers["musicName"].Current == "" && vars.Watchers["mapTic"].Current == 0 && vars.Watchers["gameTicSaved"].Current == 0 ||
-	settings["ilMode"] && vars.Watchers["mapTic"].Current > 0 && vars.Watchers["mapTic"].Current < 10 && (vars.Watchers["mapTic"].Current < vars.Watchers["mapTic"].Old || vars.Watchers["mapTic"].Old == 0);
+	settings["ilMode"] && vars.Watchers["mapTic"].Current > 0 && vars.Watchers["mapTic"].Current < 10 && (vars.Watchers["mapTic"].Current < vars.Watchers["mapTic"].Old || vars.Watchers["mapTic"].Old == 0));
 }
 
 onReset
 {
-	vars.AutoStarted = false;
+	vars.AutoStart = false;
+	vars.AutoSplit = false;
+	vars.FloatingSecondToStartTic = 0;
 	vars.StartTic = 0;
+	vars.LateSplitTics = 0;
 }
 
 gameTime
 {
-	return settings["ilMode"] ? TimeSpan.FromSeconds(vars.Watchers["mapTic"].Current / 35.0f) : TimeSpan.FromSeconds((vars.Watchers["gameTicPauseOnMelt"].Current - vars.StartTic) / 35.0f);
+	if (settings.SplitEnabled && vars.Watchers["musicName"].Current.ToUpper() != vars.Watchers["musicName"].Old.ToUpper() && vars.Intermission.Contains(vars.Watchers["musicName"].Current.ToUpper()))
+	{
+		vars.LateSplitTics = vars.Watchers["gameTic"].Current - vars.Watchers["gameTicPauseOnMelt"].Current;
+		vars.AutoSplit = true;
+	}
+
+	if (settings["ilMode"])
+	{
+		return TimeSpan.FromSeconds(vars.Watchers["mapTic"].Current / 35.0f);
+	}
+	else if (settings["floatingSecond"])
+	{
+		long currentTic = (long)(vars.Watchers["floatingSecond"].Current * 35.0d);
+		return TimeSpan.FromSeconds(((currentTic - vars.FloatingSecondToStartTic) - vars.LateSplitTics) / 35.0f);
+	}
+
+	return TimeSpan.FromSeconds((vars.Watchers["gameTicPauseOnMelt"].Current - vars.StartTic) / 35.0f);
 }
 
 isLoading
@@ -210,4 +258,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.0.8 16-Feb-2025
+// v0.0.9 27-Feb-2025
