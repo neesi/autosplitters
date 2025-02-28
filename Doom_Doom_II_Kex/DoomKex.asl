@@ -8,7 +8,7 @@ startup
 	settings.Add("gameTime", true, "Game Time :: change LiveSplit timing method on script initialization");
 	settings.Add("floatingSecond", false, "Solo Multi-Game / Co-Op Multi-Ep mode :: must enable for these runs");
 	settings.Add("ilMode", false, "IL mode :: reset on map start, start after screen melt");
-	settings.SetToolTip("floatingSecond", "inaccurate timer (± 1 tic / run), disables auto reset");
+	settings.SetToolTip("floatingSecond", "inaccurate time (± 1 tic / run), disables auto reset");
 	settings.SetToolTip("ilMode", "overrides Solo Multi-Game / Co-Op Multi-Ep mode");
 
 	vars.Log = (Action<object>)(input =>
@@ -60,9 +60,8 @@ startup
 init
 {
 	vars.TargetsFound = false;
-	vars.AutoStart = false;
 	vars.AutoSplit = false;
-	vars.FloatingSecondToStartTic = 0;
+	vars.FloatingSecondStartTic = 0;
 	vars.StartTic = 0;
 	vars.LateSplitTics = 0;
 
@@ -93,9 +92,9 @@ init
 			if (results.Count == 9)
 			{
 				string musicName = new DeepPointer(results["musicName"], 0x0).DerefString(game, 128);
-				double floatingSecond = new DeepPointer(results["floatingSecond"], 0x0).Deref<double>(game);
+				long gameTic = game.ReadValue<long>(results["gameTic"]);
 
-				if (!string.IsNullOrEmpty(musicName) || floatingSecond > 20.0d)
+				if (!string.IsNullOrEmpty(musicName) || gameTic > 0)
 				{
 					vars.Watchers = new MemoryWatcherList
 					{
@@ -131,8 +130,7 @@ init
 						},
 						new MemoryWatcher<byte>(new DeepPointer(results["baseAddress"], (int)results["isMeltScreenOffset"]))
 						{
-							Name = "isMeltScreen",
-							FailAction = MemoryWatcher.ReadFailAction.SetZeroOrNull
+							Name = "isMeltScreen"
 						}
 					};
 
@@ -145,7 +143,7 @@ init
 					break;
 				}
 
-				vars.Log("musicName = " + "\"" + musicName + "\"" + " floatingSecond = " + floatingSecond);
+				vars.Log("musicName = " + "\"" + musicName + "\"" + " gameTic = " + gameTic);
 			}
 
 			vars.Log("Retrying..");
@@ -178,20 +176,16 @@ update
 
 start
 {
-	if (settings.StartEnabled && vars.Watchers["isInGame"].Current == 1 &&
+	return vars.Watchers["isInGame"].Current == 1 &&
 	(!settings["ilMode"] && vars.Watchers["isMeltScreen"].Current == 1 && vars.Watchers["isMeltScreen"].Old == 0 && !vars.Intermission.Contains(vars.Watchers["musicName"].Current.ToUpper()) ||
-	vars.Watchers["mapTic"].Current > vars.Watchers["mapTic"].Old && vars.Watchers["mapTic"].Current > 1 && vars.Watchers["mapTic"].Current < 10 && vars.Watchers["mapTic"].Old > 0))
-	{
-		vars.AutoStart = true;
-		return true;
-	}
+	vars.Watchers["mapTic"].Current > vars.Watchers["mapTic"].Old && vars.Watchers["mapTic"].Current > 1 && vars.Watchers["mapTic"].Current < 10 && vars.Watchers["mapTic"].Old > 0);
 }
 
 onStart
 {
 	long lateStartTics = vars.Watchers["gameTic"].Current - vars.Watchers["gameTicSaved"].Current;
-	vars.FloatingSecondToStartTic = (long)((vars.Watchers["floatingSecond"].Current * 35.0d) - lateStartTics);
-	vars.StartTic = vars.AutoStart ? vars.Watchers["gameTicSaved"].Current : vars.Watchers["gameTicPauseOnMelt"].Current;
+	vars.FloatingSecondStartTic = (long)((vars.Watchers["floatingSecond"].Current * 35.0d) - lateStartTics);
+	vars.StartTic = vars.Watchers["gameTicSaved"].Current;
 }
 
 split
@@ -215,9 +209,8 @@ reset
 
 onReset
 {
-	vars.AutoStart = false;
 	vars.AutoSplit = false;
-	vars.FloatingSecondToStartTic = 0;
+	vars.FloatingSecondStartTic = 0;
 	vars.StartTic = 0;
 	vars.LateSplitTics = 0;
 }
@@ -237,7 +230,7 @@ gameTime
 	else if (settings["floatingSecond"])
 	{
 		long currentTic = (long)(vars.Watchers["floatingSecond"].Current * 35.0d);
-		return TimeSpan.FromSeconds(((currentTic - vars.FloatingSecondToStartTic) - vars.LateSplitTics) / 35.0f);
+		return TimeSpan.FromSeconds(((currentTic - vars.FloatingSecondStartTic) - vars.LateSplitTics) / 35.0f);
 	}
 
 	return TimeSpan.FromSeconds((vars.Watchers["gameTicPauseOnMelt"].Current - vars.StartTic) / 35.0f);
@@ -258,4 +251,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.0.9 27-Feb-2025
+// v0.1.0 28-Feb-2025
