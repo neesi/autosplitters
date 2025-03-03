@@ -60,10 +60,10 @@ startup
 init
 {
 	vars.TargetsFound = false;
-	vars.AutoSplit = false;
 	vars.FloatingSecondStartTic = 0;
 	vars.StartTic = 0;
 	vars.LateSplitTics = 0;
+	vars.AutoSplit = false;
 
 	vars.CancelSource = new CancellationTokenSource();
 	CancellationToken token = vars.CancelSource.Token;
@@ -94,7 +94,7 @@ init
 				string musicName = new DeepPointer(results["musicName"], 0x0).DerefString(game, 128);
 				long gameTic = game.ReadValue<long>(results["gameTic"]);
 
-				if (!string.IsNullOrEmpty(musicName) || gameTic > 0)
+				if (!string.IsNullOrEmpty(musicName) || gameTic > 70)
 				{
 					vars.Watchers = new MemoryWatcherList
 					{
@@ -209,17 +209,28 @@ reset
 
 onReset
 {
-	vars.AutoSplit = false;
 	vars.FloatingSecondStartTic = 0;
 	vars.StartTic = 0;
 	vars.LateSplitTics = 0;
+	vars.AutoSplit = false;
 }
 
 gameTime
 {
 	if (settings.SplitEnabled && vars.Watchers["musicName"].Current.ToUpper() != vars.Watchers["musicName"].Old.ToUpper() && vars.Intermission.Contains(vars.Watchers["musicName"].Current.ToUpper()))
 	{
-		vars.LateSplitTics = vars.Watchers["gameTic"].Current - vars.Watchers["gameTicPauseOnMelt"].Current;
+		long coopGameTics = vars.Watchers["gameTic"].Current - vars.Watchers["gameTicSaved"].Current;
+		long coopLateSplitTics = coopGameTics - vars.Watchers["mapTic"].Current;
+
+		if (vars.Watchers["isMeltScreen"].Current == 0 && coopLateSplitTics > 0 && coopLateSplitTics < 10)
+		{
+			vars.LateSplitTics = coopLateSplitTics;
+		}
+		else
+		{
+			vars.LateSplitTics = vars.Watchers["gameTic"].Current - vars.Watchers["gameTicPauseOnMelt"].Current;
+		}
+
 		vars.AutoSplit = true;
 	}
 
@@ -233,7 +244,7 @@ gameTime
 		return TimeSpan.FromSeconds(((currentTic - vars.FloatingSecondStartTic) - vars.LateSplitTics) / 35.0f);
 	}
 
-	return TimeSpan.FromSeconds((vars.Watchers["gameTicPauseOnMelt"].Current - vars.StartTic) / 35.0f);
+	return TimeSpan.FromSeconds(((vars.Watchers["gameTic"].Current - vars.StartTic) - vars.LateSplitTics) / 35.0f);
 }
 
 isLoading
@@ -251,4 +262,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.1.0 28-Feb-2025
+// v0.1.1 03-Mar-2025
