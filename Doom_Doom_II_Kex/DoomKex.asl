@@ -5,10 +5,11 @@ state("osiris2_WinStore") {}
 
 startup
 {
-	settings.Add("gameTime", true, "Game Time :: change LiveSplit timing method on script initialization");
+	settings.Add("gameTime", true, "Compare Against -> Game Time on script initialization");
 	settings.Add("floatingSecond", false, "Solo Multi-Game / Co-Op Multi-Ep mode :: must enable for these runs");
 	settings.Add("ilMode", false, "IL mode :: reset on map start, start after screen melt");
-	settings.SetToolTip("floatingSecond", "inaccurate time (± 1 tic / run), disables auto reset");
+	settings.SetToolTip("gameTime", "Game Time is more accurate");
+	settings.SetToolTip("floatingSecond", "inaccurate time (± 1 tic / run, with Game Time), disables auto reset");
 	settings.SetToolTip("ilMode", "overrides Solo Multi-Game / Co-Op Multi-Ep mode");
 
 	vars.Log = (Action<object>)(input =>
@@ -262,4 +263,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.1.1 03-Mar-2025
+// v0.1.2 06-Mar-2025
