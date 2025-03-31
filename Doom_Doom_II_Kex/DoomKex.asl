@@ -27,8 +27,8 @@ startup
 
 	foreach (KeyValuePair<string, SigScanTarget> target in vars.Targets)
 	{
-		string key = target.Key.Remove(target.Key.Length - 1);
-		target.Value.OnFound = (process, scanner, result) => key.EndsWith("Offset") ? (IntPtr)process.ReadValue<int>(result) : result + 0x4 + process.ReadValue<int>(result);
+		bool isOffset = target.Key.Remove(target.Key.Length - 1).EndsWith("Offset");
+		target.Value.OnFound = (proc, scan, addr) => isOffset ? (IntPtr)proc.ReadValue<int>(addr) : addr + 0x4 + proc.ReadValue<int>(addr);
 	}
 }
 
@@ -61,24 +61,30 @@ init
 
 			if (results.Count == 4)
 			{
-				IntPtr baseAddress = game.ReadPointer(results["basePointer"]);
+				IntPtr basePointer = results["basePointer"];
+				IntPtr baseAddress = game.ReadPointer(basePointer);
+
 				if (baseAddress != IntPtr.Zero)
 				{
+					int isInGameOffset = (int)results["isInGameOffset"];
+					int gameStateOffset = (int)results["gameStateOffset"];
+					int mapTicOffset = (int)results["mapTicOffset"];
+
 					vars.Watchers = new MemoryWatcherList
 					{
-						new MemoryWatcher<IntPtr>(new DeepPointer(results["basePointer"]))
+						new MemoryWatcher<IntPtr>(new DeepPointer(basePointer))
 						{
 							Name = "baseAddress"
 						},
-						new MemoryWatcher<byte>(new DeepPointer(results["basePointer"], (int)results["isInGameOffset"]))
+						new MemoryWatcher<byte>(new DeepPointer(basePointer, isInGameOffset))
 						{
 							Name = "isInGame"
 						},
-						new MemoryWatcher<byte>(new DeepPointer(results["basePointer"], (int)results["gameStateOffset"]))
+						new MemoryWatcher<byte>(new DeepPointer(basePointer, gameStateOffset))
 						{
 							Name = "gameState"
 						},
-						new MemoryWatcher<int>(new DeepPointer(results["basePointer"], (int)results["mapTicOffset"]))
+						new MemoryWatcher<int>(new DeepPointer(basePointer, mapTicOffset))
 						{
 							Name = "mapTic"
 						}
@@ -129,10 +135,10 @@ gameTime
 
 reset
 {
-	return vars.Watchers["baseAddress"].Current == IntPtr.Zero ||
-	vars.Watchers["isInGame"].Current == 0 && vars.Watchers["gameState"].Current == 3 ||
-	settings["ilMode"] && vars.Watchers["mapTic"].Current > 0 && vars.Watchers["mapTic"].Current < 10 &&
-	(vars.Watchers["mapTic"].Current < vars.Watchers["mapTic"].Old || vars.Watchers["mapTic"].Old == 0);
+	return vars.Watchers["baseAddress"].Current == IntPtr.Zero
+		|| vars.Watchers["isInGame"].Current == 0 && vars.Watchers["gameState"].Current == 3
+		|| settings["ilMode"] && vars.Watchers["mapTic"].Current > 0 && vars.Watchers["mapTic"].Current < 10
+		&& (vars.Watchers["mapTic"].Current < vars.Watchers["mapTic"].Old || vars.Watchers["mapTic"].Old == 0);
 }
 
 split
@@ -142,8 +148,8 @@ split
 
 start
 {
-	return vars.Watchers["baseAddress"].Current != IntPtr.Zero && vars.Watchers["isInGame"].Current == 1 && vars.Watchers["gameState"].Current == 0 &&
-	(!settings["ilMode"] && vars.Watchers["mapTic"].Current > 0 || settings["ilMode"] && vars.Watchers["mapTic"].Current > 1);
+	return vars.Watchers["baseAddress"].Current != IntPtr.Zero && vars.Watchers["isInGame"].Current == 1 && vars.Watchers["gameState"].Current == 0
+		&& ((!settings["ilMode"] && vars.Watchers["mapTic"].Current > 0) || (settings["ilMode"] && vars.Watchers["mapTic"].Current > 1));
 }
 
 exit
@@ -156,4 +162,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.1.5 28-Mar-2025
+// v0.1.6 31-Mar-2025
