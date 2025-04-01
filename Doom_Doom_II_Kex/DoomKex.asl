@@ -72,7 +72,7 @@ init
 
 					vars.Watchers = new MemoryWatcherList
 					{
-						new MemoryWatcher<IntPtr>(new DeepPointer(basePointer))
+						new MemoryWatcher<IntPtr>(basePointer)
 						{
 							Name = "baseAddress"
 						},
@@ -162,4 +162,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.1.6 31-Mar-2025
+// v0.1.7 01-Apr-2025
