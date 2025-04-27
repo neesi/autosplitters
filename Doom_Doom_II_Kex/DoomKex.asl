@@ -15,8 +15,8 @@ startup
 
 	vars.Targets = new Dictionary<string, SigScanTarget>
 	{
-		{ "basePointer1", new SigScanTarget(3, "48 8B 05 ?? ?? ?? ?? 33 F6 89 35 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? 48 85 C0") },
-		{ "basePointer2", new SigScanTarget(13, "40 32 FF 48 8B AE ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 80 BD ?? ?? ?? ?? 00") },
+		{ "arrayPointer1", new SigScanTarget(3, "48 8B 05 ?? ?? ?? ?? 33 F6 89 35 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? 48 85 C0") },
+		{ "arrayPointer2", new SigScanTarget(13, "40 32 FF 48 8B AE ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 80 BD ?? ?? ?? ?? 00") },
 		{ "isInGameOffset1", new SigScanTarget(20, "33 C0 89 42 ?? 48 8B 93 ?? ?? ?? ?? 88 83 ?? ?? ?? ?? 88 83") },
 		{ "isInGameOffset2", new SigScanTarget(24, "74 0C E8 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 4C 8B 15 ?? ?? ?? ?? 40 88") },
 		{ "gameStateOffset1", new SigScanTarget(9, "48 8B 06 48 8B 0C ?? 8B 83 ?? ?? ?? ?? 48 89 8B ?? ?? ?? ?? 39 83") },
@@ -28,7 +28,9 @@ startup
 	foreach (KeyValuePair<string, SigScanTarget> target in vars.Targets)
 	{
 		bool isOffset = target.Key.Remove(target.Key.Length - 1).EndsWith("Offset");
-		target.Value.OnFound = (proc, scan, addr) => isOffset ? (IntPtr)proc.ReadValue<int>(addr) : addr + 0x4 + proc.ReadValue<int>(addr);
+		target.Value.OnFound = (process, scanner, address) => isOffset
+			? (IntPtr)process.ReadValue<int>(address)
+			: address + 0x4 + process.ReadValue<int>(address);
 	}
 }
 
@@ -42,7 +44,8 @@ init
 	{
 		while (!token.IsCancellationRequested)
 		{
-			var scanner = new SignatureScanner(game, modules.First().BaseAddress, modules.First().ModuleMemorySize);
+			var module = modules.First();
+			var scanner = new SignatureScanner(game, module.BaseAddress, module.ModuleMemorySize);
 			var results = new Dictionary<string, IntPtr>();
 
 			foreach (KeyValuePair<string, SigScanTarget> target in vars.Targets)
@@ -61,40 +64,33 @@ init
 
 			if (results.Count == 4)
 			{
-				IntPtr basePointer = results["basePointer"];
-				IntPtr baseAddress = game.ReadPointer(basePointer);
+				IntPtr arrayPointer = results["arrayPointer"];
+				IntPtr arrayAddress = game.ReadPointer(arrayPointer);
 
-				if (baseAddress != IntPtr.Zero)
+				if (arrayAddress != IntPtr.Zero)
 				{
-					int isInGameOffset = (int)results["isInGameOffset"];
-					int gameStateOffset = (int)results["gameStateOffset"];
-					int mapTicOffset = (int)results["mapTicOffset"];
+					var isInGame = new DeepPointer(arrayPointer, (int)results["isInGameOffset"]);
+					var gameState = new DeepPointer(arrayPointer, (int)results["gameStateOffset"]);
+					var mapTic = new DeepPointer(arrayPointer, (int)results["mapTicOffset"]);
+
+					vars.ArrayAddress = new MemoryWatcher<IntPtr>(arrayPointer);
+					vars.IsInGame = new MemoryWatcher<byte>(isInGame);
+					vars.GameState = new MemoryWatcher<byte>(gameState);
+					vars.MapTic = new MemoryWatcher<int>(mapTic);
 
 					vars.Watchers = new MemoryWatcherList
 					{
-						new MemoryWatcher<IntPtr>(basePointer)
-						{
-							Name = "baseAddress"
-						},
-						new MemoryWatcher<byte>(new DeepPointer(basePointer, isInGameOffset))
-						{
-							Name = "isInGame"
-						},
-						new MemoryWatcher<byte>(new DeepPointer(basePointer, gameStateOffset))
-						{
-							Name = "gameState"
-						},
-						new MemoryWatcher<int>(new DeepPointer(basePointer, mapTicOffset))
-						{
-							Name = "mapTic"
-						}
+						vars.ArrayAddress,
+						vars.IsInGame,
+						vars.GameState,
+						vars.MapTic
 					};
 
 					vars.TargetsFound = true;
 					break;
 				}
 
-				vars.Log("Base address must not be zero.");
+				vars.Log("Array address must not be zero.");
 			}
 
 			vars.Log("Retrying..");
@@ -124,10 +120,10 @@ gameTime
 {
 	if (settings["ilMode"])
 	{
-		return TimeSpan.FromSeconds(vars.Watchers["mapTic"].Current / 35.0f);
+		return TimeSpan.FromSeconds(vars.MapTic.Current / 35.0f);
 	}
 
-	if (!settings["ilMode"] && timer.LoadingTimes != TimeSpan.Zero)
+	if (timer.LoadingTimes != TimeSpan.Zero)
 	{
 		timer.LoadingTimes = TimeSpan.Zero;
 	}
@@ -135,21 +131,21 @@ gameTime
 
 reset
 {
-	return vars.Watchers["baseAddress"].Current == IntPtr.Zero
-		|| vars.Watchers["isInGame"].Current == 0 && vars.Watchers["gameState"].Current == 3
-		|| settings["ilMode"] && vars.Watchers["mapTic"].Current > 0 && vars.Watchers["mapTic"].Current < 10
-		&& (vars.Watchers["mapTic"].Current < vars.Watchers["mapTic"].Old || vars.Watchers["mapTic"].Old == 0);
+	return vars.ArrayAddress.Current == IntPtr.Zero
+		|| vars.IsInGame.Current == 0 && vars.GameState.Current == 3
+		|| settings["ilMode"] && vars.MapTic.Current > 0 && vars.MapTic.Current < 10
+		&& (vars.MapTic.Current < vars.MapTic.Old || vars.MapTic.Old == 0);
 }
 
 split
 {
-	return vars.Watchers["gameState"].Changed && vars.Watchers["gameState"].Current == 1 && vars.Watchers["isInGame"].Current == 1;
+	return vars.GameState.Changed && vars.GameState.Current == 1 && vars.IsInGame.Current == 1;
 }
 
 start
 {
-	return vars.Watchers["baseAddress"].Current != IntPtr.Zero && vars.Watchers["isInGame"].Current == 1 && vars.Watchers["gameState"].Current == 0
-		&& ((!settings["ilMode"] && vars.Watchers["mapTic"].Current > 0) || (settings["ilMode"] && vars.Watchers["mapTic"].Current > 1));
+	return vars.ArrayAddress.Current != IntPtr.Zero && vars.IsInGame.Current == 1 && vars.GameState.Current == 0
+		&& ((!settings["ilMode"] && vars.MapTic.Current > 0) || vars.MapTic.Current > 1);
 }
 
 exit
@@ -162,4 +158,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.1.8 10-Apr-2025
+// v0.1.9 27-Apr-2025
