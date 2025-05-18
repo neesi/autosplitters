@@ -28,7 +28,7 @@ init
 	try
 	{
 		vars.GameExe = modules.First().ModuleName;
-		if (!vars.GameExe.ToLower().EndsWith(".exe"))
+		if (!vars.GameExe.ToLowerInvariant().EndsWith(".exe"))
 		{
 			throw new Exception("Game not loaded yet.");
 		}
@@ -168,7 +168,7 @@ init
 
 								if (System.Text.RegularExpressions.Regex.IsMatch(roomName, @"^[a-zA-Z_]+[a-zA-Z0-9_]*$"))
 								{
-									current.RoomName = roomName.ToLower();
+									current.RoomName = roomName.ToLowerInvariant();
 									if (!vars.Ready)
 									{
 										log("RoomNumber: " + hex(roomNumberAddress) + " = " + hex(roomNumber));
@@ -706,7 +706,7 @@ reset
 
 gameTime
 {
-	return TimeSpan.FromSeconds((vars.FrameCount.Current - vars.SubtractFrames) / 60f);
+	return TimeSpan.FromSeconds((vars.FrameCount.Current - vars.SubtractFrames) / 60.0d);
 }
 
 isLoading
@@ -724,4 +724,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v1.0.3 23-Jun-2024
+// v1.0.4 18-May-2025

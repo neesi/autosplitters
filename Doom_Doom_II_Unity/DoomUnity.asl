@@ -1,7 +1,5 @@
-state("doom") {}
-state("doom_egs") {}
-state("doom_gog") {}
-state("osiris2_WinStore") {}
+state("DOOM") {}
+state("DOOM II") {}
 
 startup
 {
@@ -10,19 +8,19 @@ startup
 
 	vars.Log = (Action<object>)(output =>
 	{
-		print("[Doom + Doom II Kex] " + output);
+		print("[Doom + Doom II Unity] " + output);
 	});
 
 	vars.Targets = new Dictionary<string, SigScanTarget>
 	{
-		{ "arrayPointer1", new SigScanTarget(3, "48 8B 05 ?? ?? ?? ?? 33 F6 89 35 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? 48 85 C0") },
-		{ "arrayPointer2", new SigScanTarget(13, "40 32 FF 48 8B AE ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 80 BD ?? ?? ?? ?? 00") },
-		{ "isInGameOffset1", new SigScanTarget(20, "33 C0 89 42 ?? 48 8B 93 ?? ?? ?? ?? 88 83 ?? ?? ?? ?? 88 83") },
-		{ "isInGameOffset2", new SigScanTarget(24, "74 0C E8 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 4C 8B 15 ?? ?? ?? ?? 40 88") },
-		{ "gameStateOffset1", new SigScanTarget(9, "48 8B 06 48 8B 0C ?? 8B 83 ?? ?? ?? ?? 48 89 8B ?? ?? ?? ?? 39 83") },
-		{ "gameStateOffset2", new SigScanTarget(8, "8B ?? ?? ?? ?? ?? 89 ?? ?? ?? ?? ?? 89 ?? ?? ?? ?? ?? 88 ?? ?? 85 C0 75") },
-		{ "mapTicOffset1", new SigScanTarget(15, "FF 80 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 8B ?? ?? ?? ?? ?? B0 ?? 89 8F") },
-		{ "mapTicOffset2", new SigScanTarget(3, "48 63 88 ?? ?? ?? ?? 48 69 D9 ?? ?? ?? ?? 83 3D ?? ?? ?? ?? 01") }
+		{ "arrayPointer1", new SigScanTarget(3, "48 8B 05 ?? ?? ?? ?? 45 33 ?? 45 8B ?? 44 89 ?? ?? ?? ?? ?? 8B F2") },
+		{ "arrayPointer2", new SigScanTarget(3, "48 8B 0D ?? ?? ?? ?? C7 05 ?? ?? ?? ?? ?? ?? ?? ?? 48 89 0D ?? ?? ?? ?? 85 C0") },
+		{ "isInGameOffset1", new SigScanTarget(24, "74 0C E8 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 89 ?? ?? ?? ?? ?? FF ?? 89") },
+		{ "isInGameOffset2", new SigScanTarget(2, "89 83 ?? ?? ?? ?? 89 83 ?? ?? ?? ?? 89 83 ?? ?? ?? ?? 41 83 F8 03 75") },
+		{ "gameStateOffset1", new SigScanTarget(19, "89 05 ?? ?? ?? ?? 48 8B 04 C2 48 89 05 ?? ?? ?? ?? 8B 81") },
+		{ "gameStateOffset2", new SigScanTarget(17, "48 ?? ?? ?? 4C 8B 05 ?? ?? ?? ?? 48 8B D9 41 8B 80 ?? ?? ?? ?? 85 C0") },
+		{ "mapTicOffset1", new SigScanTarget(3, "41 8B 90 ?? ?? ?? ?? 4C 8D 05 ?? ?? ?? ?? 48 63 46 20 C1") },
+		{ "mapTicOffset2", new SigScanTarget(12, "C7 05 ?? ?? ?? ?? ?? ?? ?? ?? 8B 88 ?? ?? ?? ?? B8 ?? ?? ?? ?? F7 E9 03 D1") }
 	};
 
 	foreach (KeyValuePair<string, SigScanTarget> target in vars.Targets)
@@ -48,7 +46,7 @@ init
 			try
 			{
 				ProcessModuleWow64Safe[] gameModules = game.ModulesWow64Safe();
-				var module = gameModules.First(m => m.ModuleName.ToLowerInvariant().EndsWith(".exe"));
+				var module = gameModules.First(m => m.ModuleName.ToLowerInvariant() == "doomlib.dll");
 				var scanner = new SignatureScanner(game, module.BaseAddress, module.ModuleMemorySize);
 
 				foreach (KeyValuePair<string, SigScanTarget> target in vars.Targets)
@@ -127,7 +125,11 @@ gameTime
 {
 	if (settings["ilMode"])
 	{
-		return TimeSpan.FromSeconds(vars.MapTic.Current / 35.0d);
+		double inGameTime = vars.GameState.Current == 0
+			? (double)Math.Truncate((vars.MapTic.Current / 35.0m) * 100) / 100
+			: Math.Round(vars.MapTic.Current / 35.0d, 2, MidpointRounding.AwayFromZero);
+
+		return TimeSpan.FromSeconds(inGameTime);
 	}
 
 	if (timer.LoadingTimes != TimeSpan.Zero)
@@ -138,8 +140,7 @@ gameTime
 
 reset
 {
-	return vars.ArrayAddress.Current == IntPtr.Zero
-		|| vars.IsInGame.Current == 0 && vars.GameState.Current == 3
+	return vars.IsInGame.Current == 0 && vars.GameState.Current == 3
 		|| settings["ilMode"] && vars.MapTic.Current > 0 && vars.MapTic.Current < 10
 		&& (vars.MapTic.Current < vars.MapTic.Old || vars.MapTic.Old == 0);
 }
@@ -151,7 +152,8 @@ split
 
 start
 {
-	return vars.ArrayAddress.Current != IntPtr.Zero && vars.IsInGame.Current == 1 && vars.GameState.Current == 0
+	return vars.MapTic.Changed && vars.ArrayAddress.Current != IntPtr.Zero
+		&& vars.IsInGame.Current == 1 && vars.GameState.Current == 0
 		&& ((!settings["ilMode"] && vars.MapTic.Current > 0) || vars.MapTic.Current > 1);
 }
 
@@ -165,4 +167,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.2.0 18-May-2025
+// v0.0.1 18-May-2025

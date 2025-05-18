@@ -25,7 +25,7 @@ init
 	try
 	{
 		vars.GameExe = modules.First().ModuleName;
-		if (!vars.GameExe.ToLower().EndsWith(".exe"))
+		if (!vars.GameExe.ToLowerInvariant().EndsWith(".exe"))
 		{
 			throw new Exception("Game not loaded yet.");
 		}
@@ -163,7 +163,7 @@ init
 
 								if (System.Text.RegularExpressions.Regex.IsMatch(roomName, @"^[a-zA-Z_]+[a-zA-Z0-9_]*$"))
 								{
-									current.RoomName = roomName.ToLower();
+									current.RoomName = roomName.ToLowerInvariant();
 									if (!vars.Ready)
 									{
 										log("RoomNumber: " + hex(roomNumberAddress) + " = " + hex(roomNumber));
@@ -553,13 +553,13 @@ init
 			timer.CurrentTimingMethod = TimingMethod.GameTime;
 		}
 
-		if (game.ProcessName.ToLower() == "love-classic")
+		if (game.ProcessName.ToLowerInvariant() == "love-classic")
 		{
-			vars.FPS = 30f;
+			vars.FPS = 30.0d;
 		}
 		else
 		{
-			vars.FPS = 60f;
+			vars.FPS = 60.0d;
 		}
 
 		current.RoomName = "";
@@ -631,4 +631,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v1.0.3 23-Jun-2024
+// v1.0.4 18-May-2025
