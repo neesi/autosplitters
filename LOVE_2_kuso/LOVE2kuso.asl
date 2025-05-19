@@ -28,7 +28,9 @@ init
 	try
 	{
 		vars.GameExe = modules.First().ModuleName;
-		if (!vars.GameExe.ToLowerInvariant().EndsWith(".exe"))
+		var ordinalIgnoreCase = StringComparison.OrdinalIgnoreCase;
+
+		if (!vars.GameExe.EndsWith(".exe", ordinalIgnoreCase))
 		{
 			throw new Exception("Game not loaded yet.");
 		}
@@ -724,4 +726,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v1.0.4 18-May-2025
+// v1.0.5 19-May-2025

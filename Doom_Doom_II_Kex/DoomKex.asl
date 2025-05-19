@@ -42,13 +42,14 @@ init
 
 	System.Threading.Tasks.Task.Run(async () =>
 	{
+		var ordinalIgnoreCase = StringComparison.OrdinalIgnoreCase;
 		while (!token.IsCancellationRequested)
 		{
 			var results = new Dictionary<string, IntPtr>();
 			try
 			{
 				ProcessModuleWow64Safe[] gameModules = game.ModulesWow64Safe();
-				var module = gameModules.First(m => m.ModuleName.ToLowerInvariant().EndsWith(".exe"));
+				var module = gameModules.First(m => m.ModuleName.EndsWith(".exe", ordinalIgnoreCase));
 				var scanner = new SignatureScanner(game, module.BaseAddress, module.ModuleMemorySize);
 
 				foreach (KeyValuePair<string, SigScanTarget> target in vars.Targets)
@@ -165,4 +166,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.2.0 18-May-2025
+// v0.2.1 19-May-2025
