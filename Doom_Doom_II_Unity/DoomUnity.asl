@@ -40,13 +40,13 @@ init
 
 	System.Threading.Tasks.Task.Run(async () =>
 	{
-		var ordinalIgnoreCase = StringComparison.OrdinalIgnoreCase;
 		while (!token.IsCancellationRequested)
 		{
 			var results = new Dictionary<string, IntPtr>();
 			try
 			{
 				ProcessModuleWow64Safe[] gameModules = game.ModulesWow64Safe();
+				var ordinalIgnoreCase = StringComparison.OrdinalIgnoreCase;
 				var module = gameModules.First(m => m.ModuleName.Equals("DoomLib.dll", ordinalIgnoreCase));
 				var scanner = new SignatureScanner(game, module.BaseAddress, module.ModuleMemorySize);
 
@@ -168,4 +168,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.0.2 19-May-2025
+// v0.0.3 19-May-2025
