@@ -15,10 +15,10 @@ startup
 	{
 		{ "arrayPointer1", new SigScanTarget(3, "48 8B 05 ?? ?? ?? ?? 45 33 ?? 45 8B ?? 44 89 ?? ?? ?? ?? ?? 8B F2") },
 		{ "arrayPointer2", new SigScanTarget(3, "48 8B 0D ?? ?? ?? ?? C7 05 ?? ?? ?? ?? ?? ?? ?? ?? 48 89 0D ?? ?? ?? ?? 85 C0") },
-		{ "isInGameOffset1", new SigScanTarget(24, "74 0C E8 ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 89 ?? ?? ?? ?? ?? FF ?? 89") },
-		{ "isInGameOffset2", new SigScanTarget(2, "89 83 ?? ?? ?? ?? 89 83 ?? ?? ?? ?? 89 83 ?? ?? ?? ?? 41 83 F8 03 75") },
 		{ "gameStateOffset1", new SigScanTarget(19, "89 05 ?? ?? ?? ?? 48 8B 04 C2 48 89 05 ?? ?? ?? ?? 8B 81") },
 		{ "gameStateOffset2", new SigScanTarget(17, "48 ?? ?? ?? 4C 8B 05 ?? ?? ?? ?? 48 8B D9 41 8B 80 ?? ?? ?? ?? 85 C0") },
+		{ "demoStateOffset1", new SigScanTarget(8, "0F 44 C1 48 8B CF 89 83 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 85 C0") },
+		{ "demoStateOffset2", new SigScanTarget(11, "83 FA ?? 0F 85 ?? ?? ?? ?? 29 91 ?? ?? ?? ?? 0F 89 ?? ?? ?? ?? 89 91") },
 		{ "mapTicOffset1", new SigScanTarget(3, "41 8B 90 ?? ?? ?? ?? 4C 8D 05 ?? ?? ?? ?? 48 63 46 20 C1") },
 		{ "mapTicOffset2", new SigScanTarget(12, "C7 05 ?? ?? ?? ?? ?? ?? ?? ?? 8B 88 ?? ?? ?? ?? B8 ?? ?? ?? ?? F7 E9 03 D1") }
 	};
@@ -75,20 +75,20 @@ init
 
 				if (arrayAddress != IntPtr.Zero)
 				{
-					var isInGame = new DeepPointer(arrayPointer, (int)results["isInGameOffset"]);
 					var gameState = new DeepPointer(arrayPointer, (int)results["gameStateOffset"]);
+					var demoState = new DeepPointer(arrayPointer, (int)results["demoStateOffset"]);
 					var mapTic = new DeepPointer(arrayPointer, (int)results["mapTicOffset"]);
 
 					vars.ArrayAddress = new MemoryWatcher<IntPtr>(arrayPointer);
-					vars.IsInGame = new MemoryWatcher<byte>(isInGame);
 					vars.GameState = new MemoryWatcher<byte>(gameState);
+					vars.DemoState = new MemoryWatcher<int>(demoState);
 					vars.MapTic = new MemoryWatcher<int>(mapTic);
 
 					vars.Watchers = new MemoryWatcherList
 					{
 						vars.ArrayAddress,
-						vars.IsInGame,
 						vars.GameState,
+						vars.DemoState,
 						vars.MapTic
 					};
 
@@ -141,20 +141,19 @@ gameTime
 
 reset
 {
-	return vars.IsInGame.Current == 0 && vars.GameState.Current == 3
+	return vars.GameState.Current == 3 && vars.DemoState.Current > 0
 		|| settings["ilMode"] && vars.MapTic.Current > 0 && vars.MapTic.Current < 10
 		&& (vars.MapTic.Current < vars.MapTic.Old || vars.MapTic.Old == 0);
 }
 
 split
 {
-	return vars.GameState.Changed && vars.GameState.Current == 1 && vars.IsInGame.Current == 1;
+	return vars.GameState.Changed && vars.GameState.Current == 1 && vars.DemoState.Current == 0;
 }
 
 start
 {
-	return vars.MapTic.Changed && vars.ArrayAddress.Current != IntPtr.Zero
-		&& vars.IsInGame.Current == 1 && vars.GameState.Current == 0
+	return vars.ArrayAddress.Current != IntPtr.Zero && vars.GameState.Current == 0 && vars.DemoState.Current == 0
 		&& ((!settings["ilMode"] && vars.MapTic.Current > 0) || vars.MapTic.Current > 1);
 }
 
@@ -168,4 +167,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.0.3 19-May-2025
+// v0.0.4 20-May-2025

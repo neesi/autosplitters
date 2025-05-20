@@ -140,7 +140,7 @@ gameTime
 reset
 {
 	return vars.ArrayAddress.Current == IntPtr.Zero
-		|| vars.IsInGame.Current == 0 && vars.GameState.Current == 3
+		|| vars.GameState.Current == 3 && vars.IsInGame.Current == 0
 		|| settings["ilMode"] && vars.MapTic.Current > 0 && vars.MapTic.Current < 10
 		&& (vars.MapTic.Current < vars.MapTic.Old || vars.MapTic.Old == 0);
 }
@@ -152,7 +152,7 @@ split
 
 start
 {
-	return vars.ArrayAddress.Current != IntPtr.Zero && vars.IsInGame.Current == 1 && vars.GameState.Current == 0
+	return vars.ArrayAddress.Current != IntPtr.Zero && vars.GameState.Current == 0 && vars.IsInGame.Current == 1
 		&& ((!settings["ilMode"] && vars.MapTic.Current > 0) || vars.MapTic.Current > 1);
 }
 
@@ -166,4 +166,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.2.2 19-May-2025
+// v0.2.3 20-May-2025
