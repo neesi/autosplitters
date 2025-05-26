@@ -3,9 +3,6 @@ state("DOOM II") {}
 
 startup
 {
-	settings.Add("ilMode", false, "IL mode :: reset on map start, start on player control, sync to igt");
-	settings.SetToolTip("ilMode", "igt syncing requires Compare Against -> Game Time");
-
 	vars.Log = (Action<object>)(output =>
 	{
 		print("[Doom + Doom II Unity] " + output);
@@ -117,33 +114,9 @@ update
 	vars.Watchers.UpdateAll(game);
 }
 
-isLoading
-{
-	return settings["ilMode"];
-}
-
-gameTime
-{
-	if (settings["ilMode"])
-	{
-		double inGameTime = vars.GameState.Current == 0
-			? (double)Math.Truncate((vars.MapTic.Current / 35.0m) * 100) / 100
-			: Math.Round(vars.MapTic.Current / 35.0d, 2, MidpointRounding.AwayFromZero);
-
-		return TimeSpan.FromSeconds(inGameTime);
-	}
-
-	if (timer.LoadingTimes != TimeSpan.Zero)
-	{
-		timer.LoadingTimes = TimeSpan.Zero;
-	}
-}
-
 reset
 {
-	return vars.GameState.Current == 3 && vars.DemoState.Current > 0
-		|| settings["ilMode"] && vars.MapTic.Current > 0 && vars.MapTic.Current < 10
-		&& (vars.MapTic.Current < vars.MapTic.Old || vars.MapTic.Old == 0);
+	return vars.GameState.Current == 3 && vars.DemoState.Current > 0;
 }
 
 split
@@ -153,8 +126,8 @@ split
 
 start
 {
-	return vars.ArrayAddress.Current != IntPtr.Zero && vars.GameState.Current == 0 && vars.DemoState.Current == 0
-		&& ((!settings["ilMode"] && vars.MapTic.Current > 0) || vars.MapTic.Current > 1);
+	return vars.ArrayAddress.Current != IntPtr.Zero && vars.GameState.Current == 0
+		&& vars.DemoState.Current == 0 && vars.MapTic.Current > 0;
 }
 
 exit
@@ -167,4 +140,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.0.4 20-May-2025
+// v0.0.5 26-May-2025

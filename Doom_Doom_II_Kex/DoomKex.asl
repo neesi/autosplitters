@@ -5,9 +5,6 @@ state("osiris2_WinStore") {}
 
 startup
 {
-	settings.Add("ilMode", false, "IL mode :: reset on map start, start on player control, sync to igt");
-	settings.SetToolTip("ilMode", "igt syncing requires Compare Against -> Game Time");
-
 	vars.Log = (Action<object>)(output =>
 	{
 		print("[Doom + Doom II Kex] " + output);
@@ -15,6 +12,8 @@ startup
 
 	vars.Targets = new Dictionary<string, SigScanTarget>
 	{
+		{ "gameType1", new SigScanTarget(2, "8B 05 ?? ?? ?? ?? 89 81 ?? ?? ?? ?? 48 89 91 ?? ?? ?? ?? E8 ?? ?? ?? ?? C7") },
+		{ "gameType2", new SigScanTarget(13, "48 8B 05 ?? ?? ?? ?? 48 89 ?? ?? FF 05 ?? ?? ?? ?? 48 8B 4C 24 ?? 48 85 C9 74") },
 		{ "arrayPointer1", new SigScanTarget(3, "48 8B 05 ?? ?? ?? ?? 33 F6 89 35 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? 48 85 C0") },
 		{ "arrayPointer2", new SigScanTarget(13, "40 32 FF 48 8B AE ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 80 BD ?? ?? ?? ?? 00") },
 		{ "isInGameOffset1", new SigScanTarget(20, "33 C0 89 42 ?? 48 8B 93 ?? ?? ?? ?? 88 83 ?? ?? ?? ?? 88 83") },
@@ -70,7 +69,7 @@ init
 			{
 			}
 
-			if (results.Count == 4)
+			if (results.Count == 5)
 			{
 				IntPtr arrayPointer = results["arrayPointer"];
 				IntPtr arrayAddress = game.ReadPointer(arrayPointer);
@@ -81,6 +80,7 @@ init
 					var gameState = new DeepPointer(arrayPointer, (int)results["gameStateOffset"]);
 					var mapTic = new DeepPointer(arrayPointer, (int)results["mapTicOffset"]);
 
+					vars.GameType = new MemoryWatcher<byte>(results["gameType"]);
 					vars.ArrayAddress = new MemoryWatcher<IntPtr>(arrayPointer);
 					vars.IsInGame = new MemoryWatcher<byte>(isInGame);
 					vars.GameState = new MemoryWatcher<byte>(gameState);
@@ -88,6 +88,7 @@ init
 
 					vars.Watchers = new MemoryWatcherList
 					{
+						vars.GameType,
 						vars.ArrayAddress,
 						vars.IsInGame,
 						vars.GameState,
@@ -119,30 +120,11 @@ update
 	vars.Watchers.UpdateAll(game);
 }
 
-isLoading
-{
-	return settings["ilMode"];
-}
-
-gameTime
-{
-	if (settings["ilMode"])
-	{
-		return TimeSpan.FromSeconds(vars.MapTic.Current / 35.0d);
-	}
-
-	if (timer.LoadingTimes != TimeSpan.Zero)
-	{
-		timer.LoadingTimes = TimeSpan.Zero;
-	}
-}
-
 reset
 {
-	return vars.ArrayAddress.Current == IntPtr.Zero
-		|| vars.GameState.Current == 3 && vars.IsInGame.Current == 0
-		|| settings["ilMode"] && vars.MapTic.Current > 0 && vars.MapTic.Current < 10
-		&& (vars.MapTic.Current < vars.MapTic.Old || vars.MapTic.Old == 0);
+	return vars.ArrayAddress.Current == IntPtr.Zero && vars.GameType.Current == 3
+		|| vars.ArrayAddress.Current != IntPtr.Zero && vars.GameState.Current == 3
+		&& vars.IsInGame.Current == 0 && vars.MapTic.Current > 0;
 }
 
 split
@@ -152,8 +134,8 @@ split
 
 start
 {
-	return vars.ArrayAddress.Current != IntPtr.Zero && vars.GameState.Current == 0 && vars.IsInGame.Current == 1
-		&& ((!settings["ilMode"] && vars.MapTic.Current > 0) || vars.MapTic.Current > 1);
+	return vars.ArrayAddress.Current != IntPtr.Zero && vars.GameState.Current == 0
+		&& vars.IsInGame.Current == 1 && vars.MapTic.Current > 0;
 }
 
 exit
@@ -166,4 +148,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.2.3 20-May-2025
+// v0.2.4 26-May-2025
