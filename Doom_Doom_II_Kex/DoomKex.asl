@@ -122,7 +122,8 @@ update
 
 reset
 {
-	return vars.ArrayAddress.Current == IntPtr.Zero && vars.GameType.Current == 3
+	return vars.GameType.Changed && vars.GameType.Old == 3
+		|| vars.ArrayAddress.Current == IntPtr.Zero && vars.GameType.Current == 3
 		|| vars.ArrayAddress.Current != IntPtr.Zero && vars.GameState.Current == 3
 		&& vars.IsInGame.Current == 0 && vars.MapTic.Current > 0;
 }
@@ -148,4 +149,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.2.4 26-May-2025
+// v0.2.5 24-Jul-2025
