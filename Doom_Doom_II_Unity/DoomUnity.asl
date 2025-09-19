@@ -114,6 +114,12 @@ update
 	vars.Watchers.UpdateAll(game);
 }
 
+start
+{
+	return vars.ArrayAddress.Current != IntPtr.Zero && vars.GameState.Current == 0
+		&& vars.DemoState.Current == 0 && vars.MapTic.Current > 0;
+}
+
 reset
 {
 	return vars.GameState.Current == 3 && vars.DemoState.Current > 0;
@@ -122,12 +128,6 @@ reset
 split
 {
 	return vars.GameState.Changed && vars.GameState.Current == 1 && vars.DemoState.Current == 0;
-}
-
-start
-{
-	return vars.ArrayAddress.Current != IntPtr.Zero && vars.GameState.Current == 0
-		&& vars.DemoState.Current == 0 && vars.MapTic.Current > 0;
 }
 
 exit
@@ -140,4 +140,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.0.5 26-May-2025
+// v0.0.6 20-Sep-2025 https://github.com/neesi/autosplitters/tree/main/Doom_Doom_II_Unity

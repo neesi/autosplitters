@@ -120,6 +120,12 @@ update
 	vars.Watchers.UpdateAll(game);
 }
 
+start
+{
+	return vars.ArrayAddress.Current != IntPtr.Zero && vars.GameState.Current == 0
+		&& vars.IsInGame.Current == 1 && vars.MapTic.Current > 0;
+}
+
 reset
 {
 	return vars.GameType.Changed && vars.GameType.Old == 3
@@ -133,12 +139,6 @@ split
 	return vars.GameState.Changed && vars.GameState.Current == 1 && vars.IsInGame.Current == 1;
 }
 
-start
-{
-	return vars.ArrayAddress.Current != IntPtr.Zero && vars.GameState.Current == 0
-		&& vars.IsInGame.Current == 1 && vars.MapTic.Current > 0;
-}
-
 exit
 {
 	vars.CancelSource.Cancel();
@@ -149,4 +149,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.2.7 19-Aug-2025
+// v0.2.8 20-Sep-2025 https://github.com/neesi/autosplitters/tree/main/Doom_Doom_II_Kex

@@ -549,9 +549,14 @@ start
 	return !vars.ActionRooms.Contains(current.RoomName) && vars.FrameCount.Current == vars.FrameCount.Old + 1;
 }
 
-split
+isLoading
 {
-	return vars.RoomNumber.Changed && !current.RoomName.Contains("leaderboard") && !old.RoomName.Contains("leaderboard") && vars.FrameCount.Current > 90;
+	return true;
+}
+
+gameTime
+{
+	return TimeSpan.FromSeconds(vars.FrameCount.Current / 60.0d);
 }
 
 reset
@@ -560,14 +565,9 @@ reset
 	       vars.ActionRooms.Contains(current.RoomName);
 }
 
-gameTime
+split
 {
-	return TimeSpan.FromSeconds(vars.FrameCount.Current / 60.0d);
-}
-
-isLoading
-{
-	return true;
+	return vars.RoomNumber.Changed && !current.RoomName.Contains("leaderboard") && !old.RoomName.Contains("leaderboard") && vars.FrameCount.Current > 90;
 }
 
 exit
@@ -580,4 +580,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v1.0.5 19-May-2025
+// v1.0.6 20-Sep-2025 https://github.com/neesi/autosplitters/tree/main/LOVE_3
