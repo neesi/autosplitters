@@ -86,10 +86,11 @@ init
 		var signatureTargets = new Dictionary<string, SigScanTarget>();
 		if (is64bit)
 		{
-			signatureTargets.Add("RoomNumber", new SigScanTarget(6, "48 ?? ?? ?? 3B 35 ?? ?? ?? ?? 41 ?? ?? ?? 49 ?? ?? E8 ?? ?? ?? ?? FF"));
+			signatureTargets.Add("RoomNumber", new SigScanTarget(6, "48 0F ?? ?? 3B ?? ?? ?? ?? ?? 41 0F 94 ?? ?? ?? ?? E8 ?? ?? ?? ?? FF"));
 			signatureTargets.Add("RoomBase", new SigScanTarget(10, "8D 1C C5 00 00 00 00 ?? 8B ?? ?? ?? ?? ?? 48 ?? ?? ?? 48 ?? ?? 74"));
 			signatureTargets.Add("VariableNames", new SigScanTarget(15, "3B 35 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 8B 1C E8"));
-			signatureTargets.Add("GlobalData", new SigScanTarget(13, "BA FF FF FF 00 E8 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? 48"));
+			signatureTargets.Add("GlobalData", new SigScanTarget(16, "BA FF FF FF 00 E8 ?? ?? ?? ?? 48 ?? ?? 48 89 05 ?? ?? ?? ?? 48"));
+			signatureTargets.Add("GlobalDataOld", new SigScanTarget(13, "BA FF FF FF 00 E8 ?? ?? ?? ?? 48 89 05 ?? ?? ?? ?? 48"));
 			signatureTargets.Add("SleepMargin", new SigScanTarget(10, "48 8B CE E8 ?? ?? ?? ?? 89 05 ?? ?? ?? ?? EB 2C 48 8D 15 ?? ?? ?? ?? 48 8B ?? E8"));
 		}
 		else
@@ -103,7 +104,7 @@ init
 			signatureTargets.Add("SleepMargin", new SigScanTarget(11, "8B ?? E8 ?? ?? ?? ?? 83 C4 0C A3 ?? ?? ?? ?? C6 05 ?? ?? ?? ?? 01 E9 ?? ?? ?? ?? B9"));
 		}
 
-		foreach (KeyValuePair<string, SigScanTarget> target in signatureTargets.Where(x => !x.Key.StartsWith("VariableNames") && x.Key != "GlobalData"))
+		foreach (KeyValuePair<string, SigScanTarget> target in signatureTargets.Where(x => !x.Key.StartsWith("VariableNames") && !x.Key.StartsWith("GlobalData")))
 		{
 			target.Value.OnFound = (proc, scan, result) => is64bit ? result + 0x4 + proc.ReadValue<int>(result) : proc.ReadPointer(result);
 		}
@@ -292,8 +293,14 @@ init
 
 		log("Scanning for global variable addresses..");
 
+		IEnumerable<IntPtr> globalDataResults = scanner.ScanAll(signatureTargets["GlobalData"]);
+		if (is64bit)
+		{
+			globalDataResults = globalDataResults.Union(scanner.ScanAll(signatureTargets["GlobalDataOld"]));
+		}
+
 		var pointerBasesFound = new List<Tuple<IntPtr, IntPtr, int, IntPtr, IntPtr, int>>();
-		foreach (IntPtr result in scanner.ScanAll(signatureTargets["GlobalData"]))
+		foreach (IntPtr result in globalDataResults)
 		{
 			IntPtr searchBaseFirstPointer, searchBaseFirstAddress, searchBaseSecondPointer, searchBaseSecondAddress;
 			if (is64bit)
@@ -580,4 +587,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v1.0.6 20-Sep-2025 https://github.com/neesi/autosplitters/tree/main/LOVE_3
+// v1.0.7 08-Nov-2025 https://github.com/neesi/autosplitters/tree/main/LOVE_3
