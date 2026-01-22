@@ -51,7 +51,7 @@ init
 			{
 				ProcessModuleWow64Safe[] gameModules = game.ModulesWow64Safe();
 				var module = gameModules.First(m => m.ModuleName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
-				var scanner = new SignatureScanner(game, module.BaseAddress, module.ModuleMemorySize - 0xFFFF);
+				var scanner = new SignatureScanner(game, module.BaseAddress, module.ModuleMemorySize - 0x10000);
 
 				foreach (KeyValuePair<string, SigScanTarget> target in vars.Targets)
 				{
@@ -66,93 +66,92 @@ init
 						}
 					}
 				}
+			}
+			catch
+			{
+			}
 
-				if (results.Count == 4)
+			if (results.Count == 4)
+			{
+				var found = new List<string>();
+				for (int i = 0x0; i <= 0xFFFF; i++)
 				{
-					var found = new List<string>();
-					for (int i = 0x0; i <= 0xFFFF; i++)
+					string name = new DeepPointer(results["variableNames"], i * 0x8, 0x0).DerefString(game, 256);
+					if (found.Contains(name))
 					{
-						string name = new DeepPointer(results["variableNames"], i * 0x8, 0x0).DerefString(game, 256);
-						if (found.Contains(name))
-						{
-							continue;
-						}
+						continue;
+					}
 
-						foreach (KeyValuePair<string, string> variable in variables.Where(x => x.Key.Equals(name)))
-						{
-							IntPtr globalData = results["globalData"];
-							IntPtr address1 = new DeepPointer(globalData, 0x18, 0x18).Deref<IntPtr>(game);
-							IntPtr address2 = game.ReadPointer(address1);
-							int andOperand1 = (int)(i * 0x9E3779B1) + 0x1;
-							int andOperand2 = game.ReadValue<int>(address1 + 0x10) - 0x1;
-							int value1 = game.ReadValue<int>(address1 + 0xC);
-							int value2 = (andOperand1 & andOperand2) & 0x7FFFFFFF;
-							int globalVariableIndex = game.ReadValue<int>(address2 + value1 + (value2 * 0x8));
-							IntPtr globalVariableBase = new DeepPointer(globalData, 0x48).Deref<IntPtr>(game);
-							IntPtr address = globalVariableBase + (globalVariableIndex * 0x8);
-							string addr = "0x" + address.ToString("X");
-							found.Add(name);
+					foreach (KeyValuePair<string, string> variable in variables.Where(x => x.Key.Equals(name)))
+					{
+						IntPtr globalData = results["globalData"];
+						IntPtr address1 = new DeepPointer(globalData, 0x18, 0x18).Deref<IntPtr>(game);
+						IntPtr address2 = game.ReadPointer(address1);
+						int andOperand1 = (int)(i * 0x9E3779B1) + 0x1;
+						int andOperand2 = game.ReadValue<int>(address1 + 0x10) - 0x1;
+						int value1 = game.ReadValue<int>(address1 + 0xC);
+						int value2 = (andOperand1 & andOperand2) & 0x7FFFFFFF;
+						int globalVariableIndex = game.ReadValue<int>(address2 + value1 + (value2 * 0x8));
+						IntPtr globalVariableBase = new DeepPointer(globalData, 0x48).Deref<IntPtr>(game);
+						IntPtr address = globalVariableBase + (globalVariableIndex * 0x8);
+						string addr = "0x" + address.ToString("X");
+						found.Add(name);
 
-							if (variable.Value == "number")
+						if (variable.Value == "number")
+						{
+							if (game.ReadValue<byte>(address + 0x7) == 0x7F)
 							{
-								if (game.ReadValue<byte>(address + 0x7) == 0x7F)
+								IntPtr longAddress = (IntPtr)(game.ReadValue<long>(address) & 0xFFFFFFFFFFFF) + 0x18;
+								byte[] bytes = game.ReadBytes(longAddress, 0x8);
+
+								if (bytes != null)
 								{
-									IntPtr longAddress = (IntPtr)(game.ReadValue<long>(address) & 0xFFFFFFFFFFFF) + 0x18;
-									byte[] bytes = game.ReadBytes(longAddress, 0x8);
-
-									if (bytes != null)
-									{
-										string longAddr = "0x" + longAddress.ToString("X");
-										long valueL = BitConverter.ToInt64(bytes, 0x0); // int64() in GameMaker
-										vars.Log(name + ": [" + addr + "] + 0x18 = " + longAddr + " = <long>" + valueL);
-										continue;
-									}
+									string longAddr = "0x" + longAddress.ToString("X");
+									long valueL = BitConverter.ToInt64(bytes, 0x0); // int64() in GameMaker
+									vars.Log(name + ": [" + addr + "] + 0x18 = " + longAddr + " = <long>" + valueL);
+									continue;
 								}
-
-								double valueD = game.ReadValue<double>(address); // real() in GameMaker
-								vars.Log(name + ": " + addr + " = <double>" + valueD);
 							}
 
-							if (variable.Value == "IntPtr") // ptr() in GameMaker
-							{
-								IntPtr value = (IntPtr)(game.ReadValue<long>(address) & 0xFFFFFFFFFFFF);
-								vars.Log(name + ": " + addr + " = <IntPtr>0x" + value.ToString("X"));
-							}
-
-							if (variable.Value == "bool") // bool() in GameMaker
-							{
-								bool value = game.ReadValue<bool>(address);
-								vars.Log(name + ": " + addr + " = <bool>" + value);
-							}
-
-							if (variable.Value == "string") // string() in GameMaker
-							{
-								IntPtr stringAddress = (IntPtr)(game.ReadValue<long>(address) & 0xFFFFFFFFFFFF) + 0x18;
-								string stringAddr = "0x" + stringAddress.ToString("X");
-								string value = game.ReadString(stringAddress, 256);
-								vars.Log(name + ": [" + addr + "] + 0x18 = " + stringAddr + " = \"" + value + "\"");
-							}
+							double valueD = game.ReadValue<double>(address); // real() in GameMaker
+							vars.Log(name + ": " + addr + " = <double>" + valueD);
 						}
 
-						if (found.Count == variables.Count)
+						if (variable.Value == "IntPtr") // ptr() in GameMaker
 						{
-							break;
+							IntPtr value = (IntPtr)(game.ReadValue<long>(address) & 0xFFFFFFFFFFFF);
+							vars.Log(name + ": " + addr + " = <IntPtr>0x" + value.ToString("X"));
+						}
+
+						if (variable.Value == "bool") // bool() in GameMaker
+						{
+							bool value = game.ReadValue<bool>(address);
+							vars.Log(name + ": " + addr + " = <bool>" + value);
+						}
+
+						if (variable.Value == "string") // string() in GameMaker
+						{
+							IntPtr stringAddress = (IntPtr)(game.ReadValue<long>(address) & 0xFFFFFFFFFFFF) + 0x18;
+							string stringAddr = "0x" + stringAddress.ToString("X");
+							string value = game.ReadString(stringAddress, 256);
+							vars.Log(name + ": [" + addr + "] + 0x18 = " + stringAddr + " = \"" + value + "\"");
 						}
 					}
 
-					int number = game.ReadValue<int>(results["roomNumber"]);
-					string room = new DeepPointer(results["roomBase"], number * 0x8, 0x18).DerefString(game, 256);
-					vars.Log("current room: \"" + room + "\" [" + number + "]");
-
-					if (found.Count == variables.Count && !string.IsNullOrWhiteSpace(room))
+					if (found.Count == variables.Count)
 					{
 						break;
 					}
 				}
-			}
-			catch (Exception ex)
-			{
-				vars.Log(ex.Message);
+
+				int number = game.ReadValue<int>(results["roomNumber"]);
+				string room = new DeepPointer(results["roomBase"], number * 0x8, 0x18).DerefString(game, 256);
+				vars.Log("current room: \"" + room + "\" [" + number + "]");
+
+				if (found.Count == variables.Count && !string.IsNullOrWhiteSpace(room))
+				{
+					break;
+				}
 			}
 
 			vars.Log("Retrying..");
@@ -173,4 +172,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.0.1 22-Jan-2026 https://github.com/neesi/autosplitters/tree/main/GMRT
+// v0.0.2 22-Jan-2026 https://github.com/neesi/autosplitters/tree/main/GMRT
