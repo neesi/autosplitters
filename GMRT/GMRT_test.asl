@@ -73,10 +73,15 @@ init
 
 			if (results.Count == 4)
 			{
+				IntPtr variableNames = results["variableNames"];
+				IntPtr globalData = results["globalData"];
+				IntPtr roomNumber = results["roomNumber"];
+				IntPtr roomBase = results["roomBase"];
+
 				var found = new List<string>();
 				for (int i = 0x0; i <= 0xFFFF; i++)
 				{
-					string name = new DeepPointer(results["variableNames"], i * 0x8, 0x0).DerefString(game, 256);
+					string name = new DeepPointer(variableNames, i * 0x8, 0x0).DerefString(game, 256);
 					if (found.Contains(name))
 					{
 						continue;
@@ -84,7 +89,6 @@ init
 
 					foreach (KeyValuePair<string, string> variable in variables.Where(x => x.Key.Equals(name)))
 					{
-						IntPtr globalData = results["globalData"];
 						IntPtr address1 = new DeepPointer(globalData, 0x18, 0x18).Deref<IntPtr>(game);
 						IntPtr address2 = game.ReadPointer(address1);
 						int andOperand1 = (int)(i * 0x9E3779B1) + 0x1;
@@ -144,8 +148,8 @@ init
 					}
 				}
 
-				int number = game.ReadValue<int>(results["roomNumber"]);
-				string room = new DeepPointer(results["roomBase"], number * 0x8, 0x18).DerefString(game, 256);
+				int number = game.ReadValue<int>(roomNumber);
+				string room = new DeepPointer(roomBase, number * 0x8, 0x18).DerefString(game, 256);
 				vars.Log("current room: \"" + room + "\" [" + number + "]");
 
 				if (found.Count == variables.Count && !string.IsNullOrWhiteSpace(room))
@@ -172,4 +176,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.0.2 22-Jan-2026 https://github.com/neesi/autosplitters/tree/main/GMRT
+// v0.0.3 22-Jan-2026 https://github.com/neesi/autosplitters/tree/main/GMRT
