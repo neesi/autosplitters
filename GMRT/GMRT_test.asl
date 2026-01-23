@@ -101,44 +101,51 @@ init
 						string addr = "0x" + address.ToString("X");
 						found.Add(name);
 
-						if (variable.Value == "number")
+						switch (variable.Value)
 						{
-							if (game.ReadValue<byte>(address + 0x7) == 0x7F)
+							case "number":
 							{
-								IntPtr longAddress = (IntPtr)(game.ReadValue<long>(address) & 0xFFFFFFFFFFFF) + 0x18;
-								byte[] bytes = game.ReadBytes(longAddress, 0x8);
-
-								if (bytes != null)
+								if (game.ReadValue<byte>(address + 0x7) == 0x7F)
 								{
-									string longAddr = "0x" + longAddress.ToString("X");
-									long valueL = BitConverter.ToInt64(bytes, 0x0); // int64() in GameMaker
-									vars.Log(name + ": [" + addr + "] + 0x18 = " + longAddr + " = <long>" + valueL);
-									continue;
+									IntPtr longAddress = (IntPtr)(game.ReadValue<long>(address) & 0xFFFFFFFFFFFF) + 0x18;
+									byte[] bytes = game.ReadBytes(longAddress, 0x8);
+
+									if (bytes != null)
+									{
+										string longAddr = "0x" + longAddress.ToString("X");
+										long valueL = BitConverter.ToInt64(bytes, 0x0); // int64() in GameMaker
+										vars.Log(name + ": [" + addr + "] + 0x18 = " + longAddr + " = <long>" + valueL);
+										break;
+									}
 								}
+
+								double valueD = game.ReadValue<double>(address); // real() in GameMaker
+								vars.Log(name + ": " + addr + " = <double>" + valueD);
+								break;
 							}
 
-							double valueD = game.ReadValue<double>(address); // real() in GameMaker
-							vars.Log(name + ": " + addr + " = <double>" + valueD);
-						}
+							case "IntPtr": // ptr() in GameMaker
+							{
+								IntPtr value = (IntPtr)(game.ReadValue<long>(address) & 0xFFFFFFFFFFFF);
+								vars.Log(name + ": " + addr + " = <IntPtr>0x" + value.ToString("X"));
+								break;
+							}
 
-						if (variable.Value == "IntPtr") // ptr() in GameMaker
-						{
-							IntPtr value = (IntPtr)(game.ReadValue<long>(address) & 0xFFFFFFFFFFFF);
-							vars.Log(name + ": " + addr + " = <IntPtr>0x" + value.ToString("X"));
-						}
+							case "bool": // bool() in GameMaker
+							{
+								bool value = game.ReadValue<bool>(address);
+								vars.Log(name + ": " + addr + " = <bool>" + value);
+								break;
+							}
 
-						if (variable.Value == "bool") // bool() in GameMaker
-						{
-							bool value = game.ReadValue<bool>(address);
-							vars.Log(name + ": " + addr + " = <bool>" + value);
-						}
-
-						if (variable.Value == "string") // string() in GameMaker
-						{
-							IntPtr stringAddress = (IntPtr)(game.ReadValue<long>(address) & 0xFFFFFFFFFFFF) + 0x18;
-							string stringAddr = "0x" + stringAddress.ToString("X");
-							string value = game.ReadString(stringAddress, 256);
-							vars.Log(name + ": [" + addr + "] + 0x18 = " + stringAddr + " = \"" + value + "\"");
+							case "string": // string() in GameMaker
+							{
+								IntPtr stringAddress = (IntPtr)(game.ReadValue<long>(address) & 0xFFFFFFFFFFFF) + 0x18;
+								string stringAddr = "0x" + stringAddress.ToString("X");
+								string value = game.ReadString(stringAddress, 256);
+								vars.Log(name + ": [" + addr + "] + 0x18 = " + stringAddr + " = \"" + value + "\"");
+								break;
+							}
 						}
 					}
 
@@ -176,4 +183,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.0.3 22-Jan-2026 https://github.com/neesi/autosplitters/tree/main/GMRT
+// v0.0.4 23-Jan-2026 https://github.com/neesi/autosplitters/tree/main/GMRT
