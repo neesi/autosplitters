@@ -14,9 +14,9 @@ startup
 		{ "globalData1", new SigScanTarget(3, "48 89 3D ?? ?? ?? ?? 48 85 C9 74 ?? E8 ?? ?? ?? ?? 48 8B 35 ?? ?? ?? ?? 48 8D 15") },
 		{ "globalData2", new SigScanTarget(3, "48 8B 05 ?? ?? ?? ?? C3 CC CC CC CC CC CC CC CC 48 8D 0D ?? ?? ?? ?? E9") },
 		{ "roomNumber1", new SigScanTarget(10, "48 ?? ?? ?? ?? 8B 41 ?? 89 05 ?? ?? ?? ?? C3 B8 FF FF FF FF 89") },
-		{ "roomNumber2", new SigScanTarget(8, "48 83 EC ?? 89 CE 8B 05 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 48 8B 0C C1") },
+		{ "roomNumber2", new SigScanTarget(8, "48 83 EC ?? 89 CE 8B 05 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? 48 8B ?? C1") },
 		{ "roomBase1", new SigScanTarget(3, "4C 8B ?? ?? ?? ?? ?? 4D 29 C1 49 C1 F9 ?? B8 FF FF FF FF 49 39 C9") },
-		{ "roomBase2", new SigScanTarget(16, "89 D3 45 84 C0 ?? ?? 8B 05 ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 8B 04 C2") }
+		{ "roomBase2", new SigScanTarget(16, "89 D3 45 84 C0 ?? ?? 8B 05 ?? ?? ?? ?? 48 8B ?? ?? ?? ?? ?? 48 8B ?? C2") }
 	};
 
 	foreach (KeyValuePair<string, SigScanTarget> target in vars.Targets)
@@ -28,7 +28,7 @@ startup
 init
 {
 	// Proof of Concept for a GameMaker GMRT auto splitter.
-	// Tested on GMRT/GMRT VM 0.19.0 beta (10-Dec-2025), Windows only.
+	// Tested on GMRT/GMRT VM 0.20.0 beta (16-Jun-2026), Windows only.
 	// Resolves global GameMaker variable names to data addresses. Finds the current room name.
 
 	var variables = new List<KeyValuePair<string, string>>
@@ -41,6 +41,7 @@ init
 
 	vars.CancelSource = new CancellationTokenSource();
 	CancellationToken token = vars.CancelSource.Token;
+	var inv = System.Globalization.CultureInfo.InvariantCulture;
 
 	System.Threading.Tasks.Task.Run(async () =>
 	{
@@ -49,8 +50,7 @@ init
 			var results = new Dictionary<string, IntPtr>();
 			try
 			{
-				ProcessModuleWow64Safe[] gameModules = game.ModulesWow64Safe();
-				var module = gameModules.First(m => m.ModuleName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
+				var module = game.ModulesWow64Safe().First(m => m.ModuleName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
 				var scanner = new SignatureScanner(game, module.BaseAddress, module.ModuleMemorySize - 0x10000);
 
 				foreach (KeyValuePair<string, SigScanTarget> target in vars.Targets)
@@ -87,7 +87,7 @@ init
 						continue;
 					}
 
-					foreach (KeyValuePair<string, string> variable in variables.Where(x => x.Key.Equals(name)))
+					foreach (KeyValuePair<string, string> variable in variables.Where(v => v.Key.Equals(name)))
 					{
 						IntPtr address1 = new DeepPointer(globalData, 0x18, 0x18).Deref<IntPtr>(game);
 						IntPtr address2 = game.ReadPointer(address1);
@@ -99,50 +99,67 @@ init
 						IntPtr globalVariableBase = new DeepPointer(globalData, 0x48).Deref<IntPtr>(game);
 						IntPtr address = globalVariableBase + (globalVariableIndex * 0x8);
 						string addr = "0x" + address.ToString("X");
+						ulong valueUL = game.ReadValue<ulong>(address);
 						found.Add(name);
 
 						switch (variable.Value)
 						{
 							case "number":
 							{
-								if (game.ReadValue<byte>(address + 0x7) == 0x7F)
+								if (game.ReadValue<ushort>(address) == 0x7)
 								{
-									IntPtr longAddress = (IntPtr)(game.ReadValue<long>(address) & 0xFFFFFFFFFFFF) + 0x18;
-									byte[] bytes = game.ReadBytes(longAddress, 0x8);
-
-									if (bytes != null)
+									long valueL; // int64()
+									if ((valueUL & 0x10000UL) != 0)
 									{
-										string longAddr = "0x" + longAddress.ToString("X");
-										long valueL = BitConverter.ToInt64(bytes, 0x0); // int64() in GameMaker
-										vars.Log(name + ": [" + addr + "] + 0x18 = " + longAddr + " = <long>" + valueL);
-										break;
+										valueUL = valueUL >> 17;
+										valueL = (long)(valueUL + 0xFFFFC00000000000UL);
+									}
+									else
+									{
+										valueUL = valueUL & 0xFFFFFFFFFFFEFF00UL;
+										valueUL = (valueUL << 48) | (valueUL >> 16);
+										valueL = game.ReadValue<long>((IntPtr)valueUL + 0x18);
+									}
+
+									vars.Log(name + ": " + addr + " = <long>" + valueL);
+								}
+								else
+								{
+									if (valueUL == 0x5)
+									{
+										vars.Log(name + ": " + addr + " = <double>undefined");
+									}
+									else
+									{
+										valueUL = valueUL ^ 0xC0UL;
+										valueUL = (valueUL << 55) | (valueUL >> 9);
+										double valueD = BitConverter.Int64BitsToDouble((long)valueUL); // real()
+										vars.Log(name + ": " + addr + " = <double>" + valueD.ToString(inv));
 									}
 								}
 
-								double valueD = game.ReadValue<double>(address); // real() in GameMaker
-								vars.Log(name + ": " + addr + " = <double>" + valueD);
 								break;
 							}
 
-							case "IntPtr": // ptr() in GameMaker
+							case "IntPtr":
 							{
-								IntPtr value = (IntPtr)(game.ReadValue<long>(address) & 0xFFFFFFFFFFFF);
+								IntPtr value = (IntPtr)(valueUL >> 16); // ptr()
 								vars.Log(name + ": " + addr + " = <IntPtr>0x" + value.ToString("X"));
 								break;
 							}
 
-							case "bool": // bool() in GameMaker
+							case "bool":
 							{
-								bool value = game.ReadValue<bool>(address);
+								bool value = (valueUL >> 8) == 0x1; // bool()
 								vars.Log(name + ": " + addr + " = <bool>" + value);
 								break;
 							}
 
-							case "string": // string() in GameMaker
+							case "string":
 							{
-								IntPtr stringAddress = (IntPtr)(game.ReadValue<long>(address) & 0xFFFFFFFFFFFF) + 0x18;
+								IntPtr stringAddress = (IntPtr)(valueUL >> 16) + 0x18;
 								string stringAddr = "0x" + stringAddress.ToString("X");
-								string value = game.ReadString(stringAddress, 256);
+								string value = game.ReadString(stringAddress, 256); // string()
 								vars.Log(name + ": [" + addr + "] + 0x18 = " + stringAddr + " = \"" + value + "\"");
 								break;
 							}
@@ -183,4 +200,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.0.4 23-Jan-2026 https://github.com/neesi/autosplitters/tree/main/GMRT
+// v0.0.5 22-Jun-2026 https://github.com/neesi/autosplitters/tree/main/GMRT
