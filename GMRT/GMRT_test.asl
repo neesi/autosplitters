@@ -111,8 +111,8 @@ init
 									long valueL; // int64()
 									if ((valueUL & 0x10000UL) != 0)
 									{
-										// 0xFFFFC00000000001..0x3FFFFFFFFFFF
-										// -70368744177663..70368744177663
+										// 0xFFFFC00000000001 to 0x3FFFFFFFFFFF inclusive
+										// -70368744177663 to 70368744177663 inclusive
 
 										valueL = (long)((valueUL >> 17) + 0xFFFFC00000000000UL);
 										vars.Log(name + ": " + addr + " = <long>" + valueL);
@@ -201,4 +201,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.0.8 22-Jun-2026 https://github.com/neesi/autosplitters/tree/main/GMRT
+// v0.0.9 22-Jun-2026 https://github.com/neesi/autosplitters/tree/main/GMRT
