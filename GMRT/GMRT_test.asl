@@ -111,6 +111,9 @@ init
 									long valueL; // int64()
 									if ((valueUL & 0x10000UL) != 0)
 									{
+										// 0xFFFFC00000000001..0x3FFFFFFFFFFF
+										// -70368744177663..70368744177663
+
 										valueL = (long)((valueUL >> 17) + 0xFFFFC00000000000UL);
 										vars.Log(name + ": " + addr + " = <long>" + valueL);
 									}
@@ -124,19 +127,16 @@ init
 										vars.Log(name + ": [" + addr + "] + 0x18 = " + longAddr + " = <long>" + valueL);
 									}
 								}
+								else if (valueUL == 0x5)
+								{
+									vars.Log(name + ": " + addr + " = <double>undefined");
+								}
 								else
 								{
-									if (valueUL == 0x5)
-									{
-										vars.Log(name + ": " + addr + " = <double>undefined");
-									}
-									else
-									{
-										valueUL ^= 0xC0UL;
-										valueUL = (valueUL << 55) | (valueUL >> 9);
-										double valueD = BitConverter.Int64BitsToDouble((long)valueUL); // real()
-										vars.Log(name + ": " + addr + " = <double>" + valueD.ToString(inv));
-									}
+									valueUL ^= 0xC0UL;
+									valueUL = (valueUL << 55) | (valueUL >> 9);
+									double valueD = BitConverter.Int64BitsToDouble((long)valueUL); // real()
+									vars.Log(name + ": " + addr + " = <double>" + valueD.ToString(inv));
 								}
 
 								break;
@@ -201,4 +201,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.0.7 22-Jun-2026 https://github.com/neesi/autosplitters/tree/main/GMRT
+// v0.0.8 22-Jun-2026 https://github.com/neesi/autosplitters/tree/main/GMRT
