@@ -113,15 +113,17 @@ init
 									{
 										valueUL = valueUL >> 17;
 										valueL = (long)(valueUL + 0xFFFFC00000000000UL);
+										vars.Log(name + ": " + addr + " = <long>" + valueL);
 									}
 									else
 									{
 										valueUL = valueUL & 0xFFFFFFFFFFFEFF00UL;
 										valueUL = (valueUL << 48) | (valueUL >> 16);
-										valueL = game.ReadValue<long>((IntPtr)valueUL + 0x18);
+										IntPtr longAddress = (IntPtr)valueUL + 0x18;
+										string longAddr = "0x" + longAddress.ToString("X");
+										valueL = game.ReadValue<long>(longAddress);
+										vars.Log(name + ": [" + addr + "] + 0x18 = " + longAddr + " = <long>" + valueL);
 									}
-
-									vars.Log(name + ": " + addr + " = <long>" + valueL);
 								}
 								else
 								{
@@ -200,4 +202,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.0.5 22-Jun-2026 https://github.com/neesi/autosplitters/tree/main/GMRT
+// v0.0.6 22-Jun-2026 https://github.com/neesi/autosplitters/tree/main/GMRT
