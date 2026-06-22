@@ -111,13 +111,12 @@ init
 									long valueL; // int64()
 									if ((valueUL & 0x10000UL) != 0)
 									{
-										valueUL = valueUL >> 17;
-										valueL = (long)(valueUL + 0xFFFFC00000000000UL);
+										valueL = (long)((valueUL >> 17) + 0xFFFFC00000000000UL);
 										vars.Log(name + ": " + addr + " = <long>" + valueL);
 									}
 									else
 									{
-										valueUL = valueUL & 0xFFFFFFFFFFFEFF00UL;
+										valueUL &= 0xFFFFFFFFFFFEFF00UL;
 										valueUL = (valueUL << 48) | (valueUL >> 16);
 										IntPtr longAddress = (IntPtr)valueUL + 0x18;
 										string longAddr = "0x" + longAddress.ToString("X");
@@ -133,7 +132,7 @@ init
 									}
 									else
 									{
-										valueUL = valueUL ^ 0xC0UL;
+										valueUL ^= 0xC0UL;
 										valueUL = (valueUL << 55) | (valueUL >> 9);
 										double valueD = BitConverter.Int64BitsToDouble((long)valueUL); // real()
 										vars.Log(name + ": " + addr + " = <double>" + valueD.ToString(inv));
@@ -202,4 +201,4 @@ shutdown
 	vars.CancelSource.Cancel();
 }
 
-// v0.0.6 22-Jun-2026 https://github.com/neesi/autosplitters/tree/main/GMRT
+// v0.0.7 22-Jun-2026 https://github.com/neesi/autosplitters/tree/main/GMRT
